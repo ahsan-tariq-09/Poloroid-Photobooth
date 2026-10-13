@@ -28,8 +28,14 @@ All supplied STL files match their originals byte-for-byte:
 | frame-polaroid-part2.stl | 293887702cd1070c646eff7199b2bca8e26739cb10398c70c8f45bb90c75d9f8 |
 | polaroid frame.stl | d399030138a97533220fbc51109a8b2421293b523d5d218803cdf835da89ceea |
 
+## Hosted interface verification
+
+The deployed owner-private site was inspected at its default mobile-width layout and a 1440-pixel desktop viewport. Tape insertion, duplication, undo, cutting controls, and panel switching were exercised through the browser. The current collage was preserved; the temporary viewport override was reset. The desktop verification view is saved in `studio-desktop.png`.
+
+The browser check exposed a pre-existing selection issue when a photo was cut underneath tape. Both cutting entry points now share one handler and select a newly created photo fragment. A regression test covers repeated cuts with tape above the image.
+
+The final automated suite has 37 passing tests. Production and Docker builds pass. Vitest was upgraded to 4.1.11 to resolve the concrete test-tooling advisories reported by GitHub; the dependency audit reports zero vulnerabilities.
+
 ## Verification limits
 
-The browser tool blocked local preview inspection. The private HTTPS site deployed successfully, but the available browser session encountered a ChatGPT sign-in error. Interactive browser QA, desktop/mobile screenshots, physical-camera capture, actual WebGPU hardware rendering/device-loss behavior, and real iPhone/Safari orientation coverage remain unverified. These limitations are not represented as passed checks.
-
-Recommended device checks: upload a portrait and landscape iPhone HEIC; take a photo and switch cameras; manipulate pieces with mouse and touch; test keyboard editing and reduced motion; download both artwork formats and reopen them offline. Each output should include the full Polaroid border and caption area.
+Physical-camera output, real iPhone/Safari portrait orientation, and WebGPU hardware/device-loss behavior remain unverified. Camera stream cleanup and denied-permission handling are covered by component tests; the HEIC decoder and offline PNG/SVG rendering are covered by actual decoding/rendering tests. Live touch gestures and screen-reader behavior still benefit from testing on target devices.

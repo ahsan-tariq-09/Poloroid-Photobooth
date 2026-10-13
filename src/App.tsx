@@ -372,6 +372,14 @@ export default function App() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   });
+  const cutPhoto = (id: string, fraction = 0.5) => {
+    const index = composition.layers.findIndex((piece) => piece.id === id);
+    const next = splitLayer(composition, id, axis, fraction);
+    if (next === composition) return;
+    commit(next);
+    setSelected(next.layers[index + 1].id);
+    toast("Cut made. Move the pieces to make a collage.");
+  };
   const pointerDown = (x: number, y: number, id?: string): string | null => {
     if (busy) return null;
     const hit = id
@@ -389,23 +397,11 @@ export default function App() {
       return null;
     }
     if (tool === "cut" && hit.source) {
-      const p = localPoint(hit, x, y),
-        next = splitLayer(
-          composition,
-          hit.id,
-          axis,
-          axis === "horizontal" ? p.y / hit.height : p.x / hit.width,
-        );
-      commit(next);
-      setSelected(
-        next.layers[
-          next.layers.findIndex(
-            (l) =>
-              l.source?.x === hit.source!.x && l.source?.y === hit.source!.y,
-          )
-        ]?.id || next.layers.at(-1)!.id,
+      const p = localPoint(hit, x, y);
+      cutPhoto(
+        hit.id,
+        axis === "horizontal" ? p.y / hit.height : p.x / hit.width,
       );
-      toast("Cut made. Switch to Move to shift the pieces.");
       return null;
     }
     gesture.current = {
@@ -1024,18 +1020,7 @@ export default function App() {
                           className="secondary-button"
                           disabled={!layer?.source}
                           onClick={() => {
-                            if (layer) {
-                              const next = splitLayer(
-                                composition,
-                                layer.id,
-                                axis,
-                              );
-                              commit(next);
-                              setSelected(next.layers.at(-1)!.id);
-                              toast(
-                                "Cut made. Move the pieces to make a collage.",
-                              );
-                            }
+                            if (layer) cutPhoto(layer.id);
                           }}
                         >
                           <Scissors size={14} /> Split in half

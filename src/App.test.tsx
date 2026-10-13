@@ -7,6 +7,7 @@ import type { Asset, Composition } from "./model";
 const mocks = vi.hoisted(() => ({
   current: null as null | {
     composition: Composition;
+    selected: string | null;
     asset: Asset;
     onDown: (x: number, y: number, id?: string) => string | null;
   },
@@ -111,6 +112,21 @@ afterEach(async () => {
   vi.clearAllMocks();
 });
 describe("existing editor regression", () => {
+  it("keeps a new photo fragment selected when tape sits above the photo", async () => {
+    await click('[title="Tape (T)"]');
+    await click('[title="Cut (X)"]');
+    await click(".cut-controls .secondary-button");
+    expect(comp().layers).toHaveLength(3);
+    expect(
+      comp().layers.find((layer) => layer.id === mocks.current!.selected)?.kind,
+    ).toBe("photo");
+    expect(
+      host.querySelector<HTMLButtonElement>(".cut-controls .secondary-button")!
+        .disabled,
+    ).toBe(false);
+    await click(".cut-controls .secondary-button");
+    expect(comp().layers).toHaveLength(4);
+  });
   it("preserves cut, decoration, duplication, layer controls, undo/redo and reset", async () => {
     expect(comp().layers).toHaveLength(1);
     await click('[aria-label="Select photograph"]');

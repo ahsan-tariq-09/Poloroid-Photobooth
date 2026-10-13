@@ -66,6 +66,10 @@ WebGPU runs the actual effect shader in `src/effects.wgsl`. The Canvas implement
 - `docs/inspiration`: the supplied references used for the design, retained as documentation rather than displayed as stock website screenshots.
 - `.openai/hosting.json`: private Sites deployment identity and static `dist` output.
 
+## Validation
+
+The interaction upgrade passes 37 automated tests, TypeScript checks, the production build, and the Docker build. The test dependency audit is clean. See [validation coverage and device limitations](docs/VALIDATION.md) and the [desktop interface verification view](docs/studio-desktop.png).
+
 ## References and credits
 
 The design follows the supplied **Design Document for Photobooth**, by Ahsan Tariq, Nairran Zargar, and Md Toha Tawsif. The interaction is a square Polaroid disrupted through cutting, layering, adhesive and analog distortion.
