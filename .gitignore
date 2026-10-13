@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.sites-runtime/
+.sites-checkout/
+*.tsbuildinfo
+test-results/
+playwright-report/
+.env*
+!.env.example

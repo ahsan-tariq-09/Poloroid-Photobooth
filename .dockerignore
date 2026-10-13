@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.sites-runtime
+.sites-checkout
+docs
+test-results
+*.tsbuildinfo
+.env*
