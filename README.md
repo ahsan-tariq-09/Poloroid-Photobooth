@@ -38,6 +38,12 @@ pnpm preview
 
 Keyboard shortcuts: Move `V`, Crop `C`, Cut `X`, Repeat `D`, Tape `T`, Paper `P`, Distort `E`; undo `Ctrl/⌘ Z`, redo `Ctrl/⌘ Shift Z`; arrow keys nudge the selected layer (Shift moves 10 units); Delete removes a selected piece; Escape clears selection or closes a dialog.
 
+## Interface interactions
+
+Motion for React animates tool selection, panel changes, dialogs, camera countdown and download confirmation. The Polaroid enters the workspace and reveals its photo; dragged pieces lift and settle, inserted collage elements land on the paper, and cuts briefly show their seam. These are temporary interface animations, separate from composition state and undo history. PNG/SVG exports always use the complete final composition. No new photo filters were added in this upgrade.
+
+Reduced-motion settings are respected, and animations settle when the page is hidden. The stage reuses processed photo textures during animation and layer movement rather than running photo effects each frame. Preset thumbnails now render the current uploaded photo.
+
 ## Image handling and exports
 
 All image decoding, editing and exports happen on the user's device. No photo-upload endpoint, account, analytics, or Python service is used. User images remain in memory and are not persisted. Reloading clears your session.

@@ -10,6 +10,12 @@ The actual `heic-to/csp` browser worker is executed in a Node worker adapter for
 
 TypeScript and the production build pass. The initial application bundle is separate from the lazy HEIC decoder.
 
+## Interaction upgrade regression coverage
+
+The upgrade adds temporary Motion/CSS presentation only; the original photo-effect settings and GPU/Canvas shader algorithms are unchanged. Additional tests cover cut/tape/paper/duplicate controls, layer nudging and deletion, undo/redo/reset, existing presets, both downloads, stale uploads, camera close and permission failures, and all STL links.
+
+Presentation tests verify rotated pointer mapping and cut cues. Real image tests prove that animation never changes composition state or exported pixels. Stage lifecycle tests verify texture reuse, cancellation when motion is disabled, and rejection of processed textures from replaced photos. TypeScript now rejects unused locals and parameters; obsolete imports and preset styles were removed.
+
 ## Docker and supplied models
 
 The Docker image has been built successfully and checked by starting a temporary unprivileged Nginx container, retrieving the page and an STL asset, and stopping it.
