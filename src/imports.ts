@@ -19,9 +19,9 @@ export function sanitizeSvg(input: string) {
       if (/^(href|xlink:href|src)$/i.test(attr.name) && !attr.value.startsWith('#') && !/^data:image\/(png|jpeg);base64,[a-z0-9+/=\s]+$/i.test(attr.value)) {
         throw new Error('This SVG uses linked resources. Embed its images and outline its fonts, then upload again.');
       }
-      if (/url\(\s*['"]?(?!#)/i.test(attr.value) || /@import/i.test(attr.value)) throw new Error('This SVG uses external styles. Embed resources, then upload again.');
+      if (externalCss(attr.value)) throw new Error('This SVG uses external styles. Embed resources, then upload again.');
     }
-    if (el.localName === 'style' && (/@import/i.test(el.textContent || '') || /url\(\s*['"]?(?!#)/i.test(el.textContent || ''))) throw new Error('This SVG uses external styles. Embed resources, then upload again.');
+    if (el.localName === 'style' && externalCss(el.textContent || '')) throw new Error('This SVG uses external styles. Embed resources, then upload again.');
   }
   const clean = DOMPurify.sanitize(input, { USE_PROFILES: { svg: true, svgFilters: true }, FORBID_TAGS: ['script','foreignObject','animate','animateTransform','animateMotion','set','a'] });
   const doc = new DOMParser().parseFromString(clean, 'image/svg+xml');
@@ -34,6 +34,10 @@ export function sanitizeSvg(input: string) {
   root.setAttribute('xmlns','http://www.w3.org/2000/svg');
   root.setAttribute('width',String(width)); root.setAttribute('height',String(height));
   return { svg: new XMLSerializer().serializeToString(root), width, height };
+}
+function externalCss(text:string) {
+  if(/@import/i.test(text))return true;
+  return [...text.matchAll(/url\(([^)]*)\)/gi)].some(match=>!match[1].trim().replace(/^['"]|['"]$/g,'').startsWith('#'));
 }
 export async function loadImage(url: string): Promise<HTMLImageElement> {
   const image = new Image(); image.src = url;

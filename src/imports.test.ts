@@ -20,6 +20,9 @@ describe('self-contained SVG import',()=>{
     const {svg}=sanitizeSvg(`${start}<script>alert(1)</script><rect width="100" height="100" onclick="alert(1)"/><foreignObject/><animate attributeName="x"/></svg>`);
     expect(svg).not.toMatch(/script|onclick|foreignObject|animate/);
   });
+  it('accepts quoted internal references',()=>{
+    expect(()=>sanitizeSvg(`${start}<defs><clipPath id="c"><rect width="100" height="100"/></clipPath></defs><rect style="clip-path:url('#c')"/></svg>`)).not.toThrow();
+  });
   it('rejects external images and styles rather than silently losing artwork',()=>{
     expect(()=>sanitizeSvg(`${start}<image href="https://example.com/a.png"/></svg>`)).toThrow('linked resources');
     expect(()=>sanitizeSvg(`${start}<style>@import 'https://example.com/font.css';</style></svg>`)).toThrow('external styles');

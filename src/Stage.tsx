@@ -22,6 +22,8 @@ export default function Stage({ asset, composition, selected, tool, axis, onDown
     return ()=>{version.current++;};
   },[asset,composition,view.x,view.y,view.width,view.height,onError]);
   const point = (event:PointerEvent<SVGSVGElement>)=>{
+    const matrix=event.currentTarget.getScreenCTM();
+    if(matrix){const p=new DOMPoint(event.clientX,event.clientY).matrixTransform(matrix.inverse());return {x:p.x,y:p.y};}
     const rect=event.currentTarget.getBoundingClientRect();
     return { x:view.x+(event.clientX-rect.left)/rect.width*view.width, y:view.y+(event.clientY-rect.top)/rect.height*view.height };
   };
@@ -30,7 +32,7 @@ export default function Stage({ asset, composition, selected, tool, axis, onDown
   const canCut=tool==='cut' && layer?.kind==='photo' && hovering && hovering.x>=0 && hovering.y>=0 && hovering.x<=layer.width && hovering.y<=layer.height;
   return <div className={`artboard tool-${tool}`} style={{aspectRatio:`${view.width}/${view.height}`}}>
     <canvas ref={ref} aria-label="Your Polaroid composition" role="img" />
-    <svg className="interaction" viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`} aria-label="Drag your photo and collage pieces" onPointerDown={e=>{
+    <svg className="interaction" tabIndex={0} viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`} aria-label="Drag your photo and collage pieces; use arrow keys to nudge the selected piece" onPointerDown={e=>{
       if(e.button!==0)return;
       heldRegion.current=view; e.currentTarget.setPointerCapture(e.pointerId); const p=point(e); onDown(p.x,p.y);
     }} onPointerMove={e=>{const p=point(e);setHover(p);if(e.currentTarget.hasPointerCapture(e.pointerId))onMove(p.x,p.y);}} onPointerUp={()=>{onUp();heldRegion.current=null;}} onPointerCancel={()=>{onUp();heldRegion.current=null;}} onPointerLeave={()=>setHover(null)}>

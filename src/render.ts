@@ -34,6 +34,7 @@ export function drawCaption(ctx: CanvasRenderingContext2D, caption: string) {
   ctx.font = '9px "DM Mono", monospace'; ctx.fillStyle = '#9b8c74'; ctx.fillText('A MOMENT WORTH KEEPING',300,643);
 }
 export async function renderComposition(target: HTMLCanvasElement, asset: Asset, composition: Composition, region: Rect, scale = 1) {
+  await document.fonts?.ready;
   const photo = await texture(asset,composition,scale);
   target.width = Math.ceil(region.width*scale); target.height = Math.ceil(region.height*scale);
   const ctx = target.getContext('2d')!;
@@ -54,6 +55,7 @@ export async function renderComposition(target: HTMLCanvasElement, asset: Asset,
 const escapeXml = (text: string) => text.replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]!));
 function svgData(svg: string) { return `data:image/svg+xml;base64,${btoa(Array.from(new TextEncoder().encode(svg),b => String.fromCharCode(b)).join(''))}`; }
 export async function serializeSvg(asset: Asset, composition: Composition) {
+  await document.fonts?.ready;
   const region = bounds(composition), photo = await texture(asset,composition,3);
   const hasEffects = composition.effects.film > 0 || composition.effects.copier > 0;
   const href = asset.svg && !hasEffects ? svgData(asset.svg) : photo.toDataURL('image/png');
@@ -68,7 +70,7 @@ export async function serializeSvg(asset: Asset, composition: Composition) {
         x = -(crop.x*PHOTO.size/crop.width+source.x)*factorX; y = -(crop.y*PHOTO.size/crop.height+source.y)*factorY;
         width = asset.width*PHOTO.size/crop.width*factorX; height = asset.height*PHOTO.size/crop.height*factorY;
       }
-      return `<g transform="${transform}" opacity="${layer.opacity}"><defs><clipPath id="crop-${index}"><rect width="${layer.width}" height="${layer.height}"/></clipPath></defs><g clip-path="url(#crop-${index})"><image href="${href}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="none"/></g></g>`;
+      return `<g transform="${transform}" opacity="${layer.opacity}"><defs><clipPath id="crop-${index}"><rect width="${layer.width}" height="${layer.height}"/></clipPath></defs><g clip-path="url(#crop-${index})"><image xlink:href="${href}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="none"/></g></g>`;
     }
     const points = paperPoints(layer.width,layer.height,layer.kind==='tape').map(p=>p.join(',')).join(' ');
     return `<g transform="${transform}" opacity="${layer.opacity}"><defs><clipPath id="paper-${index}"><polygon points="${points}"/></clipPath></defs><polygon points="${points}" fill="${escapeXml(layer.color)}"/><g clip-path="url(#paper-${index})">${Array.from({length:Math.ceil((layer.width+layer.height)/8)},(_,i)=>`<path d="M ${i*8-layer.height} 0 l ${layer.height} ${layer.height}" stroke="${layer.kind==='tape'?'white':'#5a4623'}" stroke-opacity="${layer.kind==='tape'?.18:.09}"/>`).join('')}</g></g>`;
@@ -76,7 +78,7 @@ export async function serializeSvg(asset: Asset, composition: Composition) {
   // Rasterize only the lettering so the exported SVG needs no installed fonts.
   const caption = canvas(520*3,100*3), ctx = caption.getContext('2d')!;
   ctx.scale(3,3); ctx.translate(-40,-575); drawCaption(ctx,composition.caption);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${region.width*3}" height="${region.height*3}" viewBox="${region.x} ${region.y} ${region.width} ${region.height}"><title>${escapeXml(composition.caption || 'My Poloroid')}</title><rect x="${FRAME.x}" y="${FRAME.y}" width="${FRAME.width}" height="${FRAME.height}" fill="${composition.frameColor}"/>${elements}<image x="40" y="575" width="520" height="100" href="${caption.toDataURL('image/png')}"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${region.width*3}" height="${region.height*3}" viewBox="${region.x} ${region.y} ${region.width} ${region.height}"><title>${escapeXml(composition.caption || 'My Poloroid')}</title><rect x="${FRAME.x}" y="${FRAME.y}" width="${FRAME.width}" height="${FRAME.height}" fill="${composition.frameColor}"/>${elements}<image x="40" y="575" width="520" height="100" xlink:href="${caption.toDataURL('image/png')}"/></svg>`;
 }
 export function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = filename; a.click(); setTimeout(()=>URL.revokeObjectURL(url),30_000);
