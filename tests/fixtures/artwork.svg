@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 180">
+  <defs>
+    <linearGradient id="sunset"><stop stop-color="#ea421b"/><stop offset="1" stop-color="#53582f"/></linearGradient>
+    <clipPath id="arch"><rect x="20" y="10" width="200" height="160" rx="70"/></clipPath>
+  </defs>
+  <g clip-path="url(#arch)"><rect width="240" height="180" fill="url(#sunset)" opacity=".8"/><circle cx="170" cy="50" r="24" fill="#ead0a0"/><path d="M0 170L75 75 135 140 180 105 240 180Z" fill="#1a0100"/></g>
+</svg>

@@ -1064,17 +1064,6 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.8;
   color: #9a8769;
 }
-.cut-controls {
-  border: 1px dashed #d0b590;
-  padding: 14px;
-  border-radius: 4px;
-  background: #f5ead6;
-  margin-bottom: 20px;
-}
-.cut-controls .panel-eyebrow {
-  font-size: 7px;
-  margin-bottom: 12px;
-}
 .segmented {
   display: flex;
   border: 1px solid #d9c6a4;
@@ -1090,16 +1079,6 @@ input[type="range"]::-moz-range-thumb {
 .segmented button.active {
   background: #d9b78d;
   color: #674831;
-}
-.cut-controls p:not(.panel-eyebrow) {
-  font-size: 9px;
-  line-height: 1.7;
-  color: #9c8260;
-  margin: 10px 0;
-}
-.cut-controls .secondary-button {
-  width: 100%;
-  font-size: 9px;
 }
 .text-button {
   display: flex;
@@ -1861,10 +1840,6 @@ input[type="range"]::-moz-range-thumb {
   .nudge-actions span {
     margin-right: 6px;
   }
-  .cut-controls {
-    grid-column: 1/-1;
-    margin-top: 15px;
-  }
   .selection-hint {
     grid-column: 1/-1;
     padding-bottom: 18px;
@@ -1970,6 +1945,12 @@ input[type="range"]::-moz-range-thumb {
 .camera-button,
 .icon-button,
 .layer-actions button,
+.print-button {
+  transition:
+    background-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
+}
 .primary-button:hover:not(:disabled) {
   background: #c64227;
   box-shadow: 0 3px 0 #95362030;
@@ -1977,6 +1958,9 @@ input[type="range"]::-moz-range-thumb {
 .primary-button:active:not(:disabled),
 .secondary-button:active:not(:disabled),
 .upload-side:active:not(:disabled),
+.print-button:active:not(:disabled) {
+  transform: translateY(2px);
+}
 .layer-row {
   transition:
     background 0.15s,
@@ -2019,7 +2003,7 @@ input[type="range"]::-moz-range-thumb {
   .primary-button:active:not(:disabled),
   .secondary-button:active:not(:disabled),
   .upload-side:active:not(:disabled),
-  .svg-download:active:not(:disabled) {
+  .print-button:active:not(:disabled) {
     transform: none;
   }
 }
@@ -2168,4 +2152,14 @@ input[type="range"]::-moz-range-thumb {
 
 .settings-content.panel-layers {
   display: block;
+}
+@media screen and (max-width: 700px) {
+  .settings-content.panel-layers .selected-controls {
+    display: block;
+  }
+  .selected-controls > .layer-actions,
+  .selected-controls > .nudge-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
 }

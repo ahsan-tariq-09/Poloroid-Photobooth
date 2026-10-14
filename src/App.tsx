@@ -1113,7 +1113,9 @@ export default function App() {
                           </div>
                         ) : (
                           <p className="selection-hint">
-                            Select a piece to move, rotate, or rearrange it.
+                            {grid && tool === "repeat"
+                              ? "Grid selected. Switch to Move to edit separate tiles."
+                              : "Select a piece to move, rotate, or rearrange it."}
                           </p>
                         )}
                       </>
@@ -1168,15 +1170,19 @@ export default function App() {
                                     [
                                       [
                                         layer.width / 2 -
-                                          Math.cos(a) * layer.width,
+                                          Math.cos(a) *
+                                            Math.max(layer.width, layer.height),
                                         layer.height / 2 -
-                                          Math.sin(a) * layer.height,
+                                          Math.sin(a) *
+                                            Math.max(layer.width, layer.height),
                                       ],
                                       [
                                         layer.width / 2 +
-                                          Math.cos(a) * layer.width,
+                                          Math.cos(a) *
+                                            Math.max(layer.width, layer.height),
                                         layer.height / 2 +
-                                          Math.sin(a) * layer.height,
+                                          Math.sin(a) *
+                                            Math.max(layer.width, layer.height),
                                       ],
                                     ],
                                     "straight",

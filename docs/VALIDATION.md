@@ -36,11 +36,13 @@ All supplied STL files match their originals byte-for-byte:
 
 ## Hosted interface verification
 
-The deployed owner-private site was inspected at its default mobile-width layout and a 1440-pixel desktop viewport. Tape insertion, duplication, undo, cutting controls, and panel switching were exercised through the browser. The current collage was preserved; the temporary viewport override was reset. The desktop verification view is saved in `studio-desktop.png`.
+The current private deployment was exercised at its normal browser size and at 1440-pixel desktop / 390-pixel mobile widths. The viewport override was reset afterward. The browser imported PNG, JPEG, a genuine exported HEIC, and transparent gradient/clipped SVG artwork together, retaining four photo layers. An angled pointer-drawn cut created independent fragments. A 3×3 repeat, grid resize and Undo, and tape rotation via its circular handle were verified.
 
-The browser check exposed a pre-existing selection issue when a photo was cut underneath tape. Both cutting entry points now share one handler and select a newly created photo fragment. A regression test covers repeated cuts with tape above the image.
+Real PNG/JPEG/SVG downloads from the same cut collage all measured 1560 × 1899 pixels. Reopening the SVG offline with resvg differed from PNG by a mean 0.15 channel levels out of 255. The SVG contained no remote image links. The HEIC download had an `ftypheic` brand (497,723 bytes) and was successfully uploaded back into the editor.
 
-The current automated suite has 48 passing tests. Production and Docker builds pass. Vitest was upgraded to 4.1.11 to resolve the concrete test-tooling advisories reported by GitHub; the dependency audit reports zero vulnerabilities.
+Visual review caught secondary-button color and mobile action-row overflow regressions; both were corrected before final publication. Desktop/mobile verification images are saved alongside this document. Print preparation is covered by the DOM/geometry tests; no physical print was sent.
+
+The suite has 48 passing tests. TypeScript, production and Docker builds pass. The dependency audit reports zero vulnerabilities. The initial JS chunk is about 512 kB before gzip; both HEIC codec bundles remain lazy-loaded.
 
 ## Verification limits
 
