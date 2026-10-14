@@ -339,7 +339,9 @@ main {
   border-radius: 4px;
   font-size: 12px;
   color: #79705e;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 .tool-button.active {
   background: transparent;
@@ -474,7 +476,8 @@ main {
   fill: #fff6e7;
   stroke: #e7522e;
   stroke-width: 1.5;
-  pointer-events: none;
+  pointer-events: all;
+  cursor: nwse-resize;
 }
 .cut-guide {
   stroke: #e7522e;
@@ -794,19 +797,6 @@ input[type="range"]::-moz-range-thumb {
   flex: 1;
   padding: 12px 10px;
   font-size: 11px;
-}
-.svg-download {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #efe1cb;
-  border: 1px solid #ddccb0;
-  font: 8px var(--mono);
-  gap: 4px;
-  border-radius: 3px;
-  width: 39px;
-  color: #8a7555;
 }
 .save-panel > span {
   font: 7px var(--mono);
@@ -1770,12 +1760,6 @@ input[type="range"]::-moz-range-thumb {
   .export-row {
     gap: 8px;
   }
-  .svg-download {
-    width: 72px;
-    flex-direction: row;
-    font-size: 10px;
-    gap: 8px;
-  }
   .download-main {
     font-size: 12px;
     padding: 13px;
@@ -1986,12 +1970,6 @@ input[type="range"]::-moz-range-thumb {
 .camera-button,
 .icon-button,
 .layer-actions button,
-.svg-download {
-  transition:
-    background-color 0.15s,
-    box-shadow 0.15s,
-    transform 0.15s;
-}
 .primary-button:hover:not(:disabled) {
   background: #c64227;
   box-shadow: 0 3px 0 #95362030;
@@ -1999,9 +1977,6 @@ input[type="range"]::-moz-range-thumb {
 .primary-button:active:not(:disabled),
 .secondary-button:active:not(:disabled),
 .upload-side:active:not(:disabled),
-.svg-download:active:not(:disabled) {
-  transform: translateY(2px);
-}
 .layer-row {
   transition:
     background 0.15s,
@@ -2047,4 +2022,150 @@ input[type="range"]::-moz-range-thumb {
   .svg-download:active:not(:disabled) {
     transform: none;
   }
+}
+
+.target-label {
+  font: 10px var(--mono);
+  fill: #9c321d;
+  paint-order: stroke;
+  stroke: #fff8e8;
+  stroke-width: 3px;
+  pointer-events: none;
+}
+.rotation-stem {
+  stroke: #e7522e;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+.rotation-handle {
+  cursor: grab;
+}
+.tool-target-controls {
+  padding: 16px 0 20px;
+  border-top: 1px solid var(--line);
+}
+.tool-target-controls .segmented {
+  margin: 12px 0;
+}
+.numeric-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.numeric-field {
+  display: grid;
+  gap: 5px;
+  font-size: 10px;
+  color: #817159;
+  margin: 8px 0;
+}
+.numeric-field input {
+  min-width: 0;
+  width: 100%;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fffaf0;
+  color: var(--brown);
+}
+.format-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+.format-selector select {
+  padding: 7px 12px;
+  background: #fff9ed;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font: 11px var(--mono);
+}
+.print-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  padding: 10px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+.print-guidance {
+  font: 9px var(--mono);
+  color: #817159;
+  line-height: 1.6;
+  margin-top: 10px;
+}
+.print-sheet {
+  display: none;
+}
+@media print {
+  @page {
+    size: auto;
+    margin: 12mm;
+  }
+  body {
+    background: white !important;
+    margin: 0 !important;
+  }
+  body > * {
+    display: none !important;
+  }
+  body > .print-sheet {
+    display: flex !important;
+    position: fixed;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    break-inside: avoid;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .print-polaroid {
+    position: relative;
+    width: 88mm !important;
+    height: 107mm !important;
+    flex: 0 0 88mm;
+    margin: 0;
+    overflow: visible;
+  }
+  .print-polaroid img {
+    max-width: none !important;
+  }
+}
+
+@media screen and (min-width: 701px) {
+  .studio-body {
+    height: 690px;
+  }
+  .settings {
+    min-height: 0;
+  }
+  .settings-content {
+    overflow-y: auto;
+    min-height: 0;
+  }
+  .layer-list {
+    max-height: 150px;
+    overflow-y: auto;
+  }
+  .save-panel {
+    flex-shrink: 0;
+  }
+}
+@media screen and (max-width: 700px) {
+  .tool-target-controls {
+    grid-column: 1 / -1;
+  }
+  .save-panel > .print-guidance {
+    font-size: 9px;
+  }
+}
+
+.settings-content.panel-layers {
+  display: block;
 }

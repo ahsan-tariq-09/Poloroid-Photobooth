@@ -7,6 +7,7 @@ import {
   initialComposition,
   type Asset,
   type Composition,
+  type Tool,
 } from "./model";
 
 const mocks = vi.hoisted(() => ({
@@ -18,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   }[],
 }));
 vi.mock("./render", () => ({
-  texture: mocks.texture,
+  prepareTextures: mocks.texture,
   paintComposition: mocks.paint,
 }));
 vi.mock("motion/react", async () => {
@@ -63,6 +64,7 @@ const flush = () =>
   act(async () => {
     await Promise.resolve();
   });
+const assetMaps = new WeakMap<Asset, Record<string, Asset>>();
 const onError = vi.fn(),
   onDown = vi.fn(),
   onMove = vi.fn(),
@@ -71,19 +73,29 @@ async function render(
   composition: Composition,
   enabled = true,
   currentAsset: Asset = asset,
+  tool: Tool = "move",
 ) {
   await act(async () =>
     root.render(
       <Stage
-        asset={currentAsset}
+        assets={
+          assetMaps.get(currentAsset) ||
+          (() => {
+            const registry = { sample: currentAsset };
+            assetMaps.set(currentAsset, registry);
+            return registry;
+          })()
+        }
         composition={composition}
         selected={composition.layers[0]?.id || null}
-        tool="move"
-        axis="horizontal"
+        tool={tool}
+        cutMode="straight"
         enabled={enabled}
-        onDown={onDown}
-        onMove={onMove}
-        onUp={onUp}
+        onSelect={onDown}
+        onChange={onMove}
+        onRepeat={onUp}
+        onCut={onUp}
+        onGrid={onUp}
         onError={onError}
       />,
     ),
@@ -100,7 +112,7 @@ beforeEach(() => {
     configurable: true,
     value: { ready: Promise.resolve() },
   });
-  mocks.texture.mockResolvedValue(document.createElement("canvas"));
+  mocks.texture.mockResolvedValue({});
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -137,26 +149,26 @@ describe("preview lifecycle and rendering cost", () => {
     });
   });
   it("ignores a processed texture that belongs to a replaced photo", async () => {
-    let first!: (value: HTMLCanvasElement) => void,
-      second!: (value: HTMLCanvasElement) => void;
+    let first!: (value: Record<string, HTMLCanvasElement>) => void,
+      second!: (value: Record<string, HTMLCanvasElement>) => void;
     mocks.texture
       .mockImplementationOnce(
         () =>
-          new Promise<HTMLCanvasElement>((r) => {
+          new Promise<Record<string, HTMLCanvasElement>>((r) => {
             first = r;
           }),
       )
       .mockImplementationOnce(
         () =>
-          new Promise<HTMLCanvasElement>((r) => {
+          new Promise<Record<string, HTMLCanvasElement>>((r) => {
             second = r;
           }),
       );
     await render(initialComposition(), false);
     const newer = { ...asset, url: "newer" };
     await render(initialComposition(), false, newer);
-    const newTexture = document.createElement("canvas"),
-      oldTexture = document.createElement("canvas");
+    const newTexture = { new: document.createElement("canvas") },
+      oldTexture = { old: document.createElement("canvas") };
     await act(async () => second(newTexture));
     await flush();
     await act(async () => first(oldTexture));
@@ -165,5 +177,89 @@ describe("preview lifecycle and rendering cost", () => {
     expect(mocks.paint.mock.calls.some((call) => call[1] === oldTexture)).toBe(
       false,
     );
+  });
+});
+
+function pointer(type: string, x: number, y: number, target: Element) {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    button: 0,
+    clientX: x + 35,
+    clientY: y,
+  });
+  Object.defineProperty(event, "pointerId", { value: 1 });
+  target.dispatchEvent(event);
+}
+async function pointerSetup(c: Composition, tool: Tool = "move") {
+  Object.defineProperty(SVGSVGElement.prototype, "getScreenCTM", {
+    configurable: true,
+    value: () => null,
+  });
+  Object.defineProperty(SVGSVGElement.prototype, "getBoundingClientRect", {
+    configurable: true,
+    value: () => ({ left: 0, top: 0, width: 670, height: 710 }),
+  });
+  Object.defineProperty(SVGSVGElement.prototype, "setPointerCapture", {
+    configurable: true,
+    value: () => {},
+  });
+  Object.defineProperty(SVGSVGElement.prototype, "hasPointerCapture", {
+    configurable: true,
+    value: () => true,
+  });
+  await render(c, false, asset, tool);
+  return host.querySelector("svg")!;
+}
+describe("real pointer gestures", () => {
+  it("resizes using the corner handle, committing just once at release", async () => {
+    const c = initialComposition(),
+      svg = await pointerSetup(c);
+    await act(async () =>
+      pointer(
+        "pointerdown",
+        530,
+        525,
+        host.querySelector('[data-handle="se"]')!,
+      ),
+    );
+    await act(async () => pointer("pointermove", 420, 410, svg));
+    expect(onMove.mock.calls.at(-1)?.[1]).toBe(false);
+    expect(onMove.mock.calls.at(-1)?.[0].layers[0].width).toBeCloseTo(350);
+    await act(async () => pointer("pointerup", 420, 410, svg));
+    expect(onMove.mock.calls.filter((c) => c[1] === true)).toHaveLength(1);
+    expect(c.layers[0].width).toBe(460);
+  });
+  it("shows a diagonal stroke and sends local coordinates to the cutting operation", async () => {
+    const c = initialComposition(),
+      svg = await pointerSetup(c, "cut");
+    await act(async () => pointer("pointerdown", 75, 70, svg));
+    await act(async () => pointer("pointermove", 525, 515, svg));
+    expect(host.querySelector(".cut-guide")?.getAttribute("points")).toContain(
+      "525,515",
+    );
+    await act(async () => pointer("pointerup", 525, 515, svg));
+    expect(onUp).toHaveBeenCalledWith(c.layers[0].id, [
+      [5, 5],
+      [455, 450],
+    ]);
+  });
+  it("trims through the crop box and rotates a tape handle without touching source geometry", async () => {
+    const c = initialComposition(),
+      svg = await pointerSetup(c, "crop");
+    await act(async () => pointer("pointerdown", 100, 100, svg));
+    await act(async () => pointer("pointermove", 300, 350, svg));
+    await act(async () => pointer("pointerup", 300, 350, svg));
+    const cropped = onMove.mock.calls.at(-1)![0].layers[0];
+    expect(cropped.width).toBeCloseTo(200);
+    expect(cropped.height).toBeCloseTo(250);
+    expect(cropped.source.x).toBeCloseTo(30);
+    onMove.mockClear();
+    c.layers[0] = { ...c.layers[0], kind: "tape", rotation: 0 };
+    await render(c, false);
+    const handle = host.querySelector('[data-handle="rotate"]')!;
+    await act(async () => pointer("pointerdown", 300, 33, handle));
+    await act(async () => pointer("pointermove", 562, 295, svg));
+    await act(async () => pointer("pointerup", 562, 295, svg));
+    expect(onMove.mock.calls.at(-1)![0].layers[0].rotation).toBeCloseTo(90);
   });
 });

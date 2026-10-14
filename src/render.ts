@@ -3,22 +3,28 @@ import {
   PHOTO,
   bounds,
   paperPoints,
+  shape,
+  shapePath,
+  DEFAULT_CROP,
   type Asset,
+  type Assets,
   type Composition,
+  type Crop,
   type Layer,
   type Rect,
 } from "./model";
 import { applyEffects } from "./effects";
 import { layerPose, type Presentation } from "./presentation";
 export function canvas(width: number, height: number) {
-  const element = document.createElement("canvas");
-  element.width = Math.max(1, Math.ceil(width));
-  element.height = Math.max(1, Math.ceil(height));
-  return element;
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.ceil(width));
+  c.height = Math.max(1, Math.ceil(height));
+  return c;
 }
+export type TextureSettings = { crop: Crop; effects: Composition["effects"] };
 export function cropGeometry(
   asset: Pick<Asset, "width" | "height">,
-  crop: Composition["crop"],
+  crop: Crop,
 ) {
   const size = Math.min(asset.width, asset.height) / crop.zoom;
   return {
@@ -29,8 +35,12 @@ export function cropGeometry(
   };
 }
 const cache = new WeakMap<Asset, Map<string, Promise<HTMLCanvasElement>>>();
-export function texture(asset: Asset, composition: Composition, scale: number) {
-  const key = JSON.stringify([composition.crop, composition.effects, scale]);
+export function texture(
+  asset: Asset,
+  settings: TextureSettings,
+  scale: number,
+) {
+  const key = JSON.stringify([settings.crop, settings.effects, scale]);
   let entries = cache.get(asset);
   if (!entries) {
     entries = new Map();
@@ -38,9 +48,9 @@ export function texture(asset: Asset, composition: Composition, scale: number) {
   }
   if (entries.has(key)) return entries.get(key)!;
   const result = (async () => {
-    const element = canvas(PHOTO.size * scale, PHOTO.size * scale),
-      ctx = element.getContext("2d")!;
-    const crop = cropGeometry(asset, composition.crop);
+    const c = canvas(PHOTO.size * scale, PHOTO.size * scale),
+      ctx = c.getContext("2d")!,
+      crop = cropGeometry(asset, settings.crop);
     ctx.drawImage(
       asset.image,
       crop.x,
@@ -49,22 +59,48 @@ export function texture(asset: Asset, composition: Composition, scale: number) {
       crop.height,
       0,
       0,
-      element.width,
-      element.height,
+      c.width,
+      c.height,
     );
     ctx.putImageData(
       await applyEffects(
-        ctx.getImageData(0, 0, element.width, element.height),
-        composition.effects,
+        ctx.getImageData(0, 0, c.width, c.height),
+        settings.effects,
       ),
       0,
       0,
     );
-    return element;
+    return c;
   })();
-  if (entries.size >= 3) entries.delete(entries.keys().next().value!);
+  if (entries.size >= 6) entries.delete(entries.keys().next().value!);
   entries.set(key, result);
+  void result.catch(() => entries!.delete(key));
   return result;
+}
+export type Textures = Record<string, HTMLCanvasElement>;
+export async function prepareTextures(
+  assets: Assets,
+  c: Composition,
+  scale: number,
+): Promise<Textures> {
+  const entries = await Promise.all(
+    c.layers
+      .filter((l) => l.kind === "photo")
+      .map(async (l) => {
+        const asset = assets[l.assetId!];
+        if (!asset)
+          throw new Error("A photo source is missing. Please upload it again.");
+        return [
+          l.id,
+          await texture(
+            asset,
+            { crop: l.crop || DEFAULT_CROP, effects: c.effects },
+            scale,
+          ),
+        ] as const;
+      }),
+  );
+  return Object.fromEntries(entries);
 }
 export function drawDecoration(ctx: CanvasRenderingContext2D, layer: Layer) {
   const points = paperPoints(layer.width, layer.height, layer.kind === "tape");
@@ -98,21 +134,35 @@ export function drawCaption(ctx: CanvasRenderingContext2D, caption: string) {
   ctx.fillStyle = "#9b8c74";
   ctx.fillText("A MOMENT WORTH KEEPING", 300, 643);
 }
+
 export async function renderComposition(
   target: HTMLCanvasElement,
-  asset: Asset,
-  composition: Composition,
+  assets: Assets,
+  c: Composition,
   region: Rect,
   scale = 1,
 ) {
   await document.fonts?.ready;
-  const photo = await texture(asset, composition, scale);
-  return paintComposition(target, photo, composition, region, scale);
+  return paintComposition(
+    target,
+    await prepareTextures(assets, c, scale),
+    c,
+    region,
+    scale,
+  );
+}
+function trace(ctx: CanvasRenderingContext2D, layer: Layer) {
+  ctx.beginPath();
+  for (const polygon of shape(layer))
+    for (const ring of polygon) {
+      ring.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+    }
 }
 export function paintComposition(
   target: HTMLCanvasElement,
-  photo: HTMLCanvasElement,
-  composition: Composition,
+  photos: Textures,
+  c: Composition,
   region: Rect,
   scale = 1,
   presentation?: Presentation,
@@ -126,15 +176,22 @@ export function paintComposition(
   ctx.clearRect(0, 0, width, height);
   ctx.scale(scale, scale);
   ctx.translate(-region.x, -region.y);
-  ctx.fillStyle = composition.frameColor;
+  ctx.fillStyle = c.frameColor;
   ctx.fillRect(FRAME.x, FRAME.y, FRAME.width, FRAME.height);
-  for (const stored of composition.layers) {
+  const draw = (stored: Layer) => {
     const visual = presentation?.layers?.[stored.id],
       layer = layerPose(stored, visual);
     ctx.save();
-    ctx.globalAlpha = layer.opacity;
-    if (layer.kind === "photo")
-      ctx.globalAlpha *= presentation?.development ?? 1;
+    if (layer.kind === "photo") {
+      ctx.beginPath();
+      ctx.rect(PHOTO.x, PHOTO.y, PHOTO.size, PHOTO.size);
+      ctx.clip();
+    }
+    ctx.globalAlpha =
+      layer.opacity *
+      (layer.kind === "photo"
+        ? (visual?.development ?? presentation?.development ?? 1)
+        : 1);
     if (visual?.lift) {
       ctx.shadowColor = "rgba(65,43,22,.22)";
       ctx.shadowBlur = 12 * visual.lift;
@@ -144,22 +201,36 @@ export function paintComposition(
     ctx.rotate((layer.rotation * Math.PI) / 180);
     ctx.translate(-layer.width / 2, -layer.height / 2);
     if (layer.kind === "photo" && layer.source) {
-      const s = layer.source;
-      ctx.drawImage(
-        photo,
-        s.x * scale,
-        s.y * scale,
-        s.width * scale,
-        s.height * scale,
-        0,
-        0,
-        layer.width,
-        layer.height,
-      );
+      trace(ctx, layer);
+      ctx.clip("evenodd");
+      const photo = photos[stored.id],
+        s = layer.source;
+      if (photo) {
+        const factor = photo.width / PHOTO.size;
+        ctx.drawImage(
+          photo,
+          s.x * factor,
+          s.y * factor,
+          s.width * factor,
+          s.height * factor,
+          0,
+          0,
+          layer.width,
+          layer.height,
+        );
+      }
     } else drawDecoration(ctx, layer);
     ctx.restore();
-  }
-  drawCaption(ctx, composition.caption);
+  };
+  c.layers.filter((l) => l.kind === "photo").forEach(draw);
+  // The locked frame is painted above photos; its square aperture stays transparent.
+  ctx.fillStyle = c.frameColor;
+  ctx.beginPath();
+  ctx.rect(FRAME.x, FRAME.y, FRAME.width, FRAME.height);
+  ctx.rect(PHOTO.x, PHOTO.y, PHOTO.size, PHOTO.size);
+  ctx.fill("evenodd");
+  drawCaption(ctx, c.caption);
+  c.layers.filter((l) => l.kind !== "photo").forEach(draw);
   return target;
 }
 const escapeXml = (text: string) =>
@@ -175,55 +246,167 @@ const escapeXml = (text: string) =>
       })[c]!,
   );
 function svgData(svg: string) {
-  return `data:image/svg+xml;base64,${btoa(Array.from(new TextEncoder().encode(svg), (b) => String.fromCharCode(b)).join(""))}`;
+  return (
+    "data:image/svg+xml;base64," +
+    btoa(
+      Array.from(new TextEncoder().encode(svg), (b) =>
+        String.fromCharCode(b),
+      ).join(""),
+    )
+  );
 }
-export async function serializeSvg(asset: Asset, composition: Composition) {
+export async function serializeSvg(assets: Assets, c: Composition) {
   await document.fonts?.ready;
-  const region = bounds(composition),
-    photo = await texture(asset, composition, 3);
-  const hasEffects =
-    composition.effects.film > 0 || composition.effects.copier > 0;
-  const href =
-    asset.svg && !hasEffects
-      ? svgData(asset.svg)
-      : photo.toDataURL("image/png");
-  const elements = composition.layers
-    .map((layer, index) => {
-      const transform = `translate(${layer.x + layer.width / 2} ${layer.y + layer.height / 2}) rotate(${layer.rotation}) translate(${-layer.width / 2} ${-layer.height / 2})`;
-      if (layer.kind === "photo" && layer.source) {
-        const source = layer.source;
-        const factorX = layer.width / source.width,
-          factorY = layer.height / source.height;
-        let x = -source.x * factorX,
-          y = -source.y * factorY,
-          width = PHOTO.size * factorX,
-          height = PHOTO.size * factorY;
-        if (asset.svg && !hasEffects) {
-          const crop = cropGeometry(asset, composition.crop);
-          x = -((crop.x * PHOTO.size) / crop.width + source.x) * factorX;
-          y = -((crop.y * PHOTO.size) / crop.height + source.y) * factorY;
-          width = ((asset.width * PHOTO.size) / crop.width) * factorX;
-          height = ((asset.height * PHOTO.size) / crop.height) * factorY;
-        }
-        return `<g transform="${transform}" opacity="${layer.opacity}"><defs><clipPath id="crop-${index}"><rect width="${layer.width}" height="${layer.height}"/></clipPath></defs><g clip-path="url(#crop-${index})"><image xlink:href="${href}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="none"/></g></g>`;
+  const region = bounds(c),
+    photos = await prepareTextures(assets, c, 3),
+    hasEffects = c.effects.film > 0 || c.effects.copier > 0;
+  const photosSvg: string[] = [],
+    decorationsSvg: string[] = [];
+  c.layers.forEach((l, index) => {
+    const transform =
+      "translate(" +
+      (l.x + l.width / 2) +
+      " " +
+      (l.y + l.height / 2) +
+      ") rotate(" +
+      l.rotation +
+      ") translate(" +
+      -l.width / 2 +
+      " " +
+      -l.height / 2 +
+      ")";
+    if (l.kind === "photo" && l.source) {
+      const asset = assets[l.assetId!],
+        s = l.source,
+        fx = l.width / s.width,
+        fy = l.height / s.height;
+      let x = -s.x * fx,
+        y = -s.y * fy,
+        width = PHOTO.size * fx,
+        height = PHOTO.size * fy;
+      const vector = asset.svg && !hasEffects;
+      if (vector) {
+        const crop = cropGeometry(asset, l.crop || DEFAULT_CROP);
+        x = -((crop.x * PHOTO.size) / crop.width + s.x) * fx;
+        y = -((crop.y * PHOTO.size) / crop.height + s.y) * fy;
+        width = ((asset.width * PHOTO.size) / crop.width) * fx;
+        height = ((asset.height * PHOTO.size) / crop.height) * fy;
       }
-      const points = paperPoints(
-        layer.width,
-        layer.height,
-        layer.kind === "tape",
-      )
+      const href = vector
+        ? svgData(asset.svg!)
+        : photos[l.id].toDataURL("image/png");
+      photosSvg.push(
+        '<g transform="' +
+          transform +
+          '" opacity="' +
+          l.opacity +
+          '"><defs><clipPath id="photo-' +
+          index +
+          '"><path d="' +
+          shapePath(l) +
+          '" clip-rule="evenodd"/></clipPath></defs><g clip-path="url(#photo-' +
+          index +
+          ')"><image xlink:href="' +
+          href +
+          '" x="' +
+          x +
+          '" y="' +
+          y +
+          '" width="' +
+          width +
+          '" height="' +
+          height +
+          '" preserveAspectRatio="none"/></g></g>',
+      );
+    } else {
+      const points = paperPoints(l.width, l.height, l.kind === "tape")
         .map((p) => p.join(","))
         .join(" ");
-      return `<g transform="${transform}" opacity="${layer.opacity}"><defs><clipPath id="paper-${index}"><polygon points="${points}"/></clipPath></defs><polygon points="${points}" fill="${escapeXml(layer.color)}"/><g clip-path="url(#paper-${index})">${Array.from({ length: Math.ceil((layer.width + layer.height) / 8) }, (_, i) => `<path d="M ${i * 8 - layer.height} 0 l ${layer.height} ${layer.height}" stroke="${layer.kind === "tape" ? "white" : "#5a4623"}" stroke-opacity="${layer.kind === "tape" ? 0.18 : 0.09}"/>`).join("")}</g></g>`;
-    })
-    .join("");
-  // Rasterize only the lettering so the exported SVG needs no installed fonts.
-  const caption = canvas(520 * 3, 100 * 3),
+      decorationsSvg.push(
+        '<g transform="' +
+          transform +
+          '" opacity="' +
+          l.opacity +
+          '"><defs><clipPath id="paper-' +
+          index +
+          '"><polygon points="' +
+          points +
+          '"/></clipPath></defs><polygon points="' +
+          points +
+          '" fill="' +
+          escapeXml(l.color) +
+          '"/><g clip-path="url(#paper-' +
+          index +
+          ')">' +
+          Array.from(
+            { length: Math.ceil((l.width + l.height) / 8) },
+            (_, i) =>
+              '<path d="M ' +
+              (i * 8 - l.height) +
+              " 0 l " +
+              l.height +
+              " " +
+              l.height +
+              '" stroke="' +
+              (l.kind === "tape" ? "white" : "#5a4623") +
+              '" stroke-opacity="' +
+              (l.kind === "tape" ? 0.18 : 0.09) +
+              '"/>',
+          ).join("") +
+          "</g></g>",
+      );
+    }
+  });
+  const caption = canvas(FRAME.width * 3, 100 * 3),
     ctx = caption.getContext("2d")!;
   ctx.scale(3, 3);
   ctx.translate(-40, -575);
-  drawCaption(ctx, composition.caption);
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${region.width * 3}" height="${region.height * 3}" viewBox="${region.x} ${region.y} ${region.width} ${region.height}"><title>${escapeXml(composition.caption || "My Poloroid")}</title><rect x="${FRAME.x}" y="${FRAME.y}" width="${FRAME.width}" height="${FRAME.height}" fill="${composition.frameColor}"/>${elements}<image x="40" y="575" width="520" height="100" xlink:href="${caption.toDataURL("image/png")}"/></svg>`;
+  drawCaption(ctx, c.caption);
+  const frame =
+    '<rect x="' +
+    FRAME.x +
+    '" y="' +
+    FRAME.y +
+    '" width="' +
+    FRAME.width +
+    '" height="' +
+    FRAME.height +
+    '" fill="' +
+    c.frameColor +
+    '"/>';
+  return (
+    '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="' +
+    (region.width * 88) / FRAME.width +
+    'mm" height="' +
+    (region.height * 88) / FRAME.width +
+    'mm" viewBox="' +
+    region.x +
+    " " +
+    region.y +
+    " " +
+    region.width +
+    " " +
+    region.height +
+    '"><title>' +
+    escapeXml(c.caption || "My Poloroid") +
+    "</title>" +
+    frame +
+    '<defs><clipPath id="opening"><rect x="' +
+    PHOTO.x +
+    '" y="' +
+    PHOTO.y +
+    '" width="' +
+    PHOTO.size +
+    '" height="' +
+    PHOTO.size +
+    '"/></clipPath></defs><g clip-path="url(#opening)">' +
+    photosSvg.join("") +
+    '</g><image x="40" y="575" width="520" height="100" xlink:href="' +
+    caption.toDataURL("image/png") +
+    '"/>' +
+    decorationsSvg.join("") +
+    "</svg>"
+  );
 }
 export function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob),
@@ -231,21 +414,89 @@ export function download(blob: Blob, filename: string) {
   a.href = url;
   a.download = filename;
   a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
-export async function exportPng(asset: Asset, composition: Composition) {
-  const out = await renderComposition(
-    canvas(1, 1),
-    asset,
-    composition,
-    bounds(composition),
-    3,
-  );
-  const blob = await new Promise<Blob>((resolve, reject) =>
-    out.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("Export failed. Try again."))),
-      "image/png",
+export type ExportFormat = "png" | "jpeg" | "heic" | "svg";
+export function flatten(output: HTMLCanvasElement) {
+  const ctx = output.getContext("2d")!;
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-over";
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, output.width, output.height);
+  ctx.restore();
+  return output;
+}
+export function canvasBlob(output: HTMLCanvasElement, type: string) {
+  return new Promise<Blob>((resolve, reject) =>
+    output.toBlob(
+      (b) =>
+        b && b.type === type
+          ? resolve(b)
+          : reject(
+              new Error(
+                "This browser could not encode " +
+                  type +
+                  ". Choose PNG or JPEG.",
+              ),
+            ),
+      type,
+      0.95,
     ),
   );
-  download(blob, "my-poloroid.png");
+}
+export async function exportFile(
+  assets: Assets,
+  c: Composition,
+  format: ExportFormat,
+) {
+  if (format === "svg") {
+    download(
+      new Blob([await serializeSvg(assets, c)], { type: "image/svg+xml" }),
+      "my-poloroid.svg",
+    );
+    return;
+  }
+  const out = await renderComposition(canvas(1, 1), assets, c, bounds(c), 3);
+  if (format !== "png") flatten(out);
+  const blob =
+    format === "heic"
+      ? await (await import("./heicExport")).encodeHeic(out)
+      : await canvasBlob(out, format === "jpeg" ? "image/jpeg" : "image/png");
+  download(blob, "my-poloroid." + (format === "jpeg" ? "jpg" : format));
+}
+export async function printComposition(assets: Assets, c: Composition) {
+  const region = bounds(c),
+    out = await renderComposition(canvas(1, 1), assets, c, region, 3);
+  const sheet = document.createElement("div");
+  sheet.className = "print-sheet";
+  sheet.setAttribute("aria-hidden", "true");
+  const frame = document.createElement("div");
+  frame.className = "print-polaroid";
+  frame.style.width = "88mm";
+  frame.style.height = "107mm";
+  const image = document.createElement("img");
+  image.alt = "Finished Polaroid";
+  image.src = out.toDataURL("image/png");
+  Object.assign(image.style, {
+    position: "absolute",
+    width: (region.width * 88) / FRAME.width + "mm",
+    height: (region.height * 88) / FRAME.width + "mm",
+    left: ((region.x - FRAME.x) * 88) / FRAME.width + "mm",
+    top: ((region.y - FRAME.y) * 88) / FRAME.width + "mm",
+  });
+  frame.append(image);
+  sheet.append(frame);
+  document.querySelector(".print-sheet")?.remove();
+  document.body.append(sheet);
+  // Register before print(): some browsers dispatch afterprint synchronously.
+  const cleanup = () => sheet.remove();
+  window.addEventListener("afterprint", cleanup, { once: true });
+  try {
+    await image.decode();
+    window.print();
+  } catch (error) {
+    window.removeEventListener("afterprint", cleanup);
+    sheet.remove();
+    throw error;
+  }
 }

@@ -3,7 +3,6 @@ import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { panelVariants, useStudioMotion } from "./useStudioMotion";
 import {
   ArrowDown,
-  ArrowDownToLine,
   ArrowLeft,
   ArrowRight,
   ArrowUp,
@@ -29,6 +28,7 @@ import {
   Undo2,
   Redo2,
   Upload,
+  Printer,
   X,
 } from "lucide-react";
 import { ACCEPT, importAsset, loadImage } from "./imports";
@@ -36,20 +36,30 @@ import {
   addDecoration,
   clone,
   duplicateLayer,
-  hitTest,
   initialComposition,
-  localPoint,
-  splitLayer,
+  cutLayer,
+  cropLayer,
+  repeatLayer,
+  transformGrid,
+  photoLayer,
+  DEFAULT_CROP,
+  type Layer,
+  type Assets,
+  type Point,
   type Asset,
   type Composition,
   type Tool,
 } from "./model";
 import { historyReducer } from "./history";
 import { backend, initializeEffects } from "./effects";
-import { download, exportPng, serializeSvg, texture } from "./render";
+import {
+  exportFile as downloadArtwork,
+  printComposition,
+  texture,
+  type ExportFormat,
+} from "./render";
 import Stage from "./Stage";
 import Camera from "./Camera";
-
 const tools: { id: Tool; label: string; icon: typeof Move; key: string }[] = [
   { id: "move", label: "Move", icon: MousePointer2, key: "V" },
   { id: "crop", label: "Crop", icon: Maximize2, key: "C" },
@@ -62,9 +72,10 @@ const tools: { id: Tool; label: string; icon: typeof Move; key: string }[] = [
 const tapeColors = ["#d8b88a", "#e65b3c", "#6b897e", "#53582f", "#dfc1ae"];
 const help: Record<Tool, string> = {
   move: "Drag a piece to give it a new home.",
-  crop: "Drag to reframe your photo. Adjust zoom below.",
-  cut: "Select a photo, then click where you want to cut.",
-  repeat: "Click a piece to make a slightly misplaced copy.",
+  crop: "Drag a crop box or its corners to trim the selected photo.",
+  cut: "Draw across a photo. Release to cut; Undo brings it back.",
+  repeat:
+    "Repeat a photo in a 3 × 3 grid. Resize the grid box; switch tools to edit tiles.",
   tape: "A little tape holds a memory together.",
   paper: "Add a scrap. Make it a little more yours.",
   effects: "A little faded. A little imperfect. Just right.",
@@ -78,6 +89,7 @@ function Range({
   suffix = "%",
   onChange,
   onFinish,
+  disabled = false,
 }: {
   label: string;
   value: number;
@@ -87,6 +99,7 @@ function Range({
   suffix?: string;
   onChange: (v: number) => void;
   onFinish: () => void;
+  disabled?: boolean;
 }) {
   return (
     <label className="range-control">
@@ -99,6 +112,7 @@ function Range({
       </span>
       <input
         aria-label={label}
+        disabled={disabled}
         type="range"
         min={min}
         max={max}
@@ -128,11 +142,22 @@ export default function App() {
   const [draft, setDraft] = useState<Composition | null>(null),
     draftRef = useRef<Composition | null>(null);
   const composition = draft || history.present;
-  const [asset, setAsset] = useState<Asset | null>(null),
-    assetRef = useRef<Asset | null>(null);
+  const [assets, setAssets] = useState<Assets>({});
+  const assetsRef = useRef<Assets>({}),
+    initialPhotos = useRef<Layer[]>([]),
+    hasRealPhotos = useRef(false);
+  const compositionRef = useRef(composition);
+  compositionRef.current = composition;
+  const uploadQueue = useRef(Promise.resolve()),
+    importCount = useRef(0);
+  const [grid, setGrid] = useState<{ box: Layer; ids: string[] } | null>(null);
+  const gridRef = useRef(grid);
+  gridRef.current = grid;
+  const [format, setFormat] = useState<ExportFormat>("png");
+  const [cutAngle, setCutAngle] = useState(0);
   const [tool, setTool] = useState<Tool>("move"),
     [selected, setSelected] = useState<string | null>(null),
-    [axis, setAxis] = useState<"horizontal" | "vertical">("horizontal");
+    [cutMode, setCutMode] = useState<"straight" | "freehand">("straight");
   const [panel, setPanel] = useState<"look" | "layers">("look"),
     [camera, setCamera] = useState(false),
     [guide, setGuide] = useState(false),
@@ -147,19 +172,19 @@ export default function App() {
     request = useRef(0),
     alive = useRef(true),
     toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const gesture = useRef<{
-    composition: Composition;
-    point: { x: number; y: number };
-    id: string;
-    crop: boolean;
-  } | null>(null);
   const layer = composition.layers.find((l) => l.id === selected);
+  const asset =
+    (layer?.assetId ? assets[layer.assetId] : null) ||
+    Object.values(assets)[0] ||
+    null;
   const commit = useCallback((value: Composition) => {
+    compositionRef.current = value;
     draftRef.current = null;
     setDraft(null);
     dispatch({ type: "commit", value });
   }, []);
   const preview = (value: Composition) => {
+    compositionRef.current = value;
     draftRef.current = value;
     setDraft(value);
   };
@@ -173,13 +198,14 @@ export default function App() {
   }, []);
   const reportError = useCallback((text: string) => setError(text), []);
   const replaceAsset = useCallback((value: Asset, sample = false) => {
-    if (assetRef.current?.url.startsWith("blob:"))
-      URL.revokeObjectURL(assetRef.current.url);
-    assetRef.current = value;
-    setAsset(value);
+    assetsRef.current = { sample: value };
+    setAssets(assetsRef.current);
+    const next = initialComposition(sample);
+    initialPhotos.current = clone(next.layers);
+    compositionRef.current = next;
     setDraft(null);
     draftRef.current = null;
-    dispatch({ type: "reset", value: initialComposition(sample) });
+    dispatch({ type: "reset", value: next });
     setSelected(null);
     setTool("move");
     setError("");
@@ -211,40 +237,83 @@ export default function App() {
     return () => {
       alive.current = false;
       request.current++;
-      if (assetRef.current?.url.startsWith("blob:"))
-        URL.revokeObjectURL(assetRef.current.url);
+      Object.values(assetsRef.current).forEach((a) => {
+        if (a.url.startsWith("blob:")) URL.revokeObjectURL(a.url);
+      });
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
   }, [replaceAsset]);
-  const upload = async (file: File) => {
-    const token = ++request.current;
+  const upload = (inputFiles: File | File[]) => {
+    const files = Array.isArray(inputFiles) ? inputFiles : [inputFiles];
+    request.current++;
+    importCount.current++;
     setBusy(true);
     setError("");
-    try {
-      const value = await importAsset(file);
-      if (token !== request.current || !alive.current) {
-        URL.revokeObjectURL(value.url);
-        return;
-      }
-      await document.fonts.ready;
-      if (token !== request.current || !alive.current) {
-        URL.revokeObjectURL(value.url);
-        return;
-      }
-      replaceAsset(value);
-      toast("Your photo is in. Make it yours.");
-    } catch (e) {
-      if (token === request.current && alive.current)
-        setError(
-          e instanceof Error ? e.message : "This photo could not be opened.",
-        );
-    } finally {
-      if (token === request.current && alive.current) setBusy(false);
-    }
+    uploadQueue.current = uploadQueue.current
+      .then(async () => {
+        const errors: string[] = [];
+        for (const file of files) {
+          if (!alive.current) break;
+          try {
+            const value = await importAsset(file);
+            if (!alive.current) {
+              URL.revokeObjectURL(value.url);
+              break;
+            }
+            const id = crypto.randomUUID();
+            if (!hasRealPhotos.current) {
+              hasRealPhotos.current = true;
+              assetsRef.current = {};
+              initialPhotos.current = [];
+            }
+            assetsRef.current = { ...assetsRef.current, [id]: value };
+            setAssets(assetsRef.current);
+            const added = photoLayer(
+              id,
+              value.name,
+              initialPhotos.current.length,
+            );
+            initialPhotos.current.push(clone(added));
+            const next =
+              initialPhotos.current.length === 1
+                ? { ...initialComposition(), layers: [added] }
+                : {
+                    ...clone(compositionRef.current),
+                    layers: [...compositionRef.current.layers, added],
+                  };
+            setGrid(null);
+            setSelected(added.id);
+            setTool("move");
+            setPanel("layers");
+            if (initialPhotos.current.length === 1) {
+              compositionRef.current = next;
+              dispatch({ type: "reset", value: next });
+              setDraft(null);
+              draftRef.current = null;
+            } else commit(next);
+          } catch (e) {
+            errors.push(
+              file.name +
+                ": " +
+                (e instanceof Error ? e.message : "Could not open this image."),
+            );
+          }
+        }
+        if (alive.current) {
+          if (errors.length) setError(errors.join(" · "));
+          else toast("Your photos are in. Make them yours.");
+        }
+      })
+      .finally(() => {
+        importCount.current--;
+        if (alive.current) setBusy(importCount.current > 0);
+      });
+    return uploadQueue.current;
   };
   const openUpload = () => input.current?.click();
   const chooseTool = (id: Tool) => {
     finish();
+    setGrid(null);
     setTool(id);
     if (id === "tape" || id === "paper") {
       const next = addDecoration(
@@ -256,10 +325,13 @@ export default function App() {
       setSelected(next.layers.at(-1)!.id);
       setPanel("layers");
     } else if (id === "effects") setPanel("look");
-    else if (id === "cut" && !layer?.source)
-      setSelected(
-        composition.layers.find((l) => l.kind === "photo")?.id || null,
-      );
+    else if (["cut", "crop", "repeat"].includes(id)) {
+      setPanel("layers");
+      if (!layer?.source)
+        setSelected(
+          composition.layers.find((l) => l.kind === "photo")?.id || null,
+        );
+    }
   };
   const updateLayer = (
     values: Partial<NonNullable<typeof layer>>,
@@ -274,8 +346,14 @@ export default function App() {
   };
   const reorder = (direction: number) => {
     const next = clone(composition),
-      index = next.layers.findIndex((l) => l.id === selected),
-      destination = index + direction;
+      index = next.layers.findIndex((l) => l.id === selected);
+    const band = next.layers.filter(
+      (l) => (l.kind === "photo") === (layer?.kind === "photo"),
+    );
+    const neighbor = band[band.findIndex((l) => l.id === selected) + direction];
+    const destination = neighbor
+      ? next.layers.findIndex((l) => l.id === neighbor.id)
+      : -1;
     if (index < 0 || destination < 0 || destination >= next.layers.length)
       return;
     [next.layers[index], next.layers[destination]] = [
@@ -299,11 +377,13 @@ export default function App() {
     setSelected(next.layers.at(-1)!.id);
   };
   const undo = () => {
+    setGrid(null);
     setDraft(null);
     draftRef.current = null;
     dispatch({ type: "undo" });
   };
   const redo = () => {
+    setGrid(null);
     setDraft(null);
     draftRef.current = null;
     dispatch({ type: "redo" });
@@ -331,6 +411,7 @@ export default function App() {
         return;
       }
       if (e.key === "Escape") {
+        setGrid(null);
         setSelected(null);
         setTool("move");
       }
@@ -372,65 +453,47 @@ export default function App() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   });
-  const cutPhoto = (id: string, fraction = 0.5) => {
-    const index = composition.layers.findIndex((piece) => piece.id === id);
-    const next = splitLayer(composition, id, axis, fraction);
-    if (next === composition) return;
-    commit(next);
-    setSelected(next.layers[index + 1].id);
-    toast("Cut made. Move the pieces to make a collage.");
-  };
-  const pointerDown = (x: number, y: number, id?: string): string | null => {
-    if (busy) return null;
-    const hit = id
-      ? composition.layers.find((l) => l.id === id)
-      : hitTest(composition.layers, x, y);
-    if (!hit) {
-      setSelected(null);
-      return null;
-    }
-    setSelected(hit.id);
-    if (tool === "repeat") {
-      const next = duplicateLayer(composition, hit.id);
+  const cutPhoto = (id: string, points: Point[], mode = cutMode) => {
+    try {
+      const next = cutLayer(compositionRef.current, id, points, mode);
+      const oldIds = new Set(compositionRef.current.layers.map((l) => l.id));
       commit(next);
-      setSelected(next.layers.at(-1)!.id);
-      return null;
+      setSelected(next.layers.find((l) => !oldIds.has(l.id))!.id);
+      setPanel("layers");
+      toast("Cut made. Move the pieces to make a collage.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "This cut could not be made.");
     }
-    if (tool === "cut" && hit.source) {
-      const p = localPoint(hit, x, y);
-      cutPhoto(
-        hit.id,
-        axis === "horizontal" ? p.y / hit.height : p.x / hit.width,
-      );
-      return null;
-    }
-    gesture.current = {
-      composition: clone(composition),
-      point: { x, y },
-      id: hit.id,
-      crop: tool === "crop" && hit.kind === "photo",
-    };
-    return tool === "crop" ? null : hit.id;
   };
-  const pointerMove = (x: number, y: number) => {
-    const g = gesture.current;
+  const repeatPhoto = (id: string) => {
+    const current = compositionRef.current,
+      original = current.layers.find((l) => l.id === id);
+    if (!original || original.kind !== "photo") return;
+    const next = repeatLayer(current, id),
+      oldIds = new Set(current.layers.map((l) => l.id));
+    const ids = next.layers.filter((l) => !oldIds.has(l.id)).map((l) => l.id);
+    commit(next);
+    setGrid({ box: clone(original), ids });
+    setSelected(ids[0]);
+    setPanel("layers");
+    toast("Nine memories. Adjust the grid, or switch tools to edit each tile.");
+  };
+  const adjustGrid = (box: Layer, final: boolean) => {
+    const g = gridRef.current;
     if (!g) return;
-    const next = clone(g.composition),
-      dx = x - g.point.x,
-      dy = y - g.point.y;
-    if (g.crop) {
-      next.crop.x = g.composition.crop.x + dx;
-      next.crop.y = g.composition.crop.y + dy;
-    } else {
-      const l = next.layers.find((l) => l.id === g.id)!;
-      l.x = Math.max(-200, Math.min(900, l.x + dx));
-      l.y = Math.max(-200, Math.min(900, l.y + dy));
-    }
-    preview(next);
-  };
-  const pointerUp = () => {
-    gesture.current = null;
-    finish();
+    const next = clone(compositionRef.current),
+      transformed = transformGrid(
+        next.layers.filter((l) => g.ids.includes(l.id)),
+        g.box,
+        box,
+      );
+    next.layers = next.layers.map(
+      (l) => transformed.find((t) => t.id === l.id) || l,
+    );
+    const updated = { ...g, box };
+    gridRef.current = updated;
+    setGrid(updated);
+    final ? commit(next) : preview(next);
   };
   const setEffect = (key: "film" | "copier", value: number) => {
     const next = clone(composition);
@@ -443,26 +506,31 @@ export default function App() {
       effects: { ...composition.effects, film, copier },
     });
   };
-  const exportFile = async (format: "png" | "svg") => {
-    if (!asset) return;
+  const exportFile = async (print = false) => {
+    if (!asset || busy) return;
     finish();
     setExporting(true);
     setError("");
     try {
-      await document.fonts.ready;
-      if (format === "png") await exportPng(asset, composition);
+      if (print)
+        await printComposition(assetsRef.current, compositionRef.current);
       else
-        download(
-          new Blob([await serializeSvg(asset, composition)], {
-            type: "image/svg+xml",
-          }),
-          "my-poloroid.svg",
+        await downloadArtwork(
+          assetsRef.current,
+          compositionRef.current,
+          format,
         );
       setEngine(backend);
-      toast(`Your Polaroid is ready. ${format.toUpperCase()} downloaded.`);
+      toast(
+        print
+          ? "Polaroid ready to print at 88 × 107 mm."
+          : "Your Polaroid is ready. " + format.toUpperCase() + " downloaded.",
+      );
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "Download failed. Please try again.",
+        e instanceof Error
+          ? e.message
+          : "Could not prepare your Polaroid. Try PNG or JPEG.",
       );
     } finally {
       setExporting(false);
@@ -486,17 +554,19 @@ export default function App() {
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          if (e.dataTransfer.files[0]) void upload(e.dataTransfer.files[0]);
+          if (e.dataTransfer.files.length)
+            void upload(Array.from(e.dataTransfer.files));
         }}
       >
         <input
           ref={input}
           type="file"
           accept={ACCEPT}
+          multiple
           className="visually-hidden"
           aria-label="Upload a JPG, PNG, HEIC, HEIF, or SVG photo"
           onChange={(e) => {
-            if (e.target.files?.[0]) void upload(e.target.files[0]);
+            if (e.target.files?.length) void upload(Array.from(e.target.files));
             e.target.value = "";
           }}
         />
@@ -573,9 +643,10 @@ export default function App() {
                 <button
                   className="reset-button"
                   onClick={() => {
-                    commit(
-                      initialComposition(asset?.url === "/sample-coast.png"),
-                    );
+                    commit({
+                      ...initialComposition(!hasRealPhotos.current),
+                      layers: clone(initialPhotos.current),
+                    });
                     setSelected(null);
                     toast("A fresh start. Your photo is still here.");
                   }}
@@ -624,7 +695,7 @@ export default function App() {
                   </p>
                 </div>
                 <button className="upload-side" onClick={openUpload}>
-                  <Plus size={17} /> New photo
+                  <Plus size={17} /> Add photos
                 </button>
               </aside>
               <div className="workspace">
@@ -653,16 +724,23 @@ export default function App() {
                   </div>
                   {asset ? (
                     <Stage
-                      key={asset.url}
                       enabled={motionEnabled}
-                      asset={asset}
+                      assets={assets}
                       composition={composition}
                       selected={selected}
                       tool={tool}
-                      axis={axis}
-                      onDown={pointerDown}
-                      onMove={pointerMove}
-                      onUp={pointerUp}
+                      cutMode={cutMode}
+                      grid={tool === "repeat" ? grid?.box : undefined}
+                      onSelect={(id) => {
+                        setSelected(id);
+                        if (!grid) setPanel("layers");
+                      }}
+                      onChange={(next, final) =>
+                        final ? commit(next) : preview(next)
+                      }
+                      onRepeat={repeatPhoto}
+                      onCut={cutPhoto}
+                      onGrid={adjustGrid}
                       onError={reportError}
                     />
                   ) : (
@@ -711,7 +789,7 @@ export default function App() {
                 <AnimatePresence initial={false} mode="wait">
                   <motion.div
                     key={panel}
-                    className="settings-content"
+                    className={"settings-content panel-" + panel}
                     variants={panelVariants}
                     initial={motionEnabled ? "enter" : false}
                     animate={motionEnabled ? "visible" : "still"}
@@ -735,6 +813,7 @@ export default function App() {
                                 <PresetThumbnail
                                   asset={asset}
                                   composition={composition}
+                                  crop={layer?.crop || DEFAULT_CROP}
                                   film={p.film}
                                   copier={p.copier}
                                 />
@@ -819,20 +898,26 @@ export default function App() {
                             label="Zoom"
                             min={100}
                             max={300}
-                            value={composition.crop.zoom * 100}
+                            disabled={layer?.kind !== "photo"}
+                            value={(layer?.crop?.zoom || 1) * 100}
                             onChange={(v) =>
-                              preview({
-                                ...clone(composition),
-                                crop: { ...composition.crop, zoom: v / 100 },
-                              })
+                              updateLayer(
+                                {
+                                  crop: {
+                                    ...(layer?.crop || DEFAULT_CROP),
+                                    zoom: v / 100,
+                                  },
+                                },
+                                true,
+                              )
                             }
                             onFinish={finish}
                           />
                           <button
                             className="text-button"
-                            onClick={() => setTool("crop")}
+                            onClick={() => chooseTool("crop")}
                           >
-                            <Move size={13} /> Drag to reframe
+                            <Move size={13} /> Trim selected photo
                           </button>
                         </div>
                       </>
@@ -847,6 +932,7 @@ export default function App() {
                               onClick={() => {
                                 setSelected(l.id);
                                 setTool("move");
+                                setGrid(null);
                               }}
                             >
                               <span
@@ -857,7 +943,7 @@ export default function App() {
                                 }}
                               >
                                 {l.kind === "photo" && (
-                                  <img src={asset?.url} alt="" />
+                                  <img src={assets[l.assetId!]?.url} alt="" />
                                 )}
                               </span>
                               <span>
@@ -874,9 +960,46 @@ export default function App() {
                             </button>
                           ))}
                         </div>
-                        {layer ? (
+                        {layer && !(grid && tool === "repeat") ? (
                           <div className="selected-controls">
                             <p className="panel-eyebrow">SELECTED PIECE</p>
+                            <div className="numeric-fields">
+                              {(["x", "y", "width", "height"] as const).map(
+                                (key) => (
+                                  <label className="numeric-field" key={key}>
+                                    {key}
+                                    <input
+                                      aria-label={"Piece " + key}
+                                      type="number"
+                                      min={
+                                        key === "width" || key === "height"
+                                          ? 12
+                                          : -200
+                                      }
+                                      value={Math.round(layer[key])}
+                                      onChange={(e) =>
+                                        updateLayer(
+                                          {
+                                            [key]: Math.max(
+                                              key === "width" ||
+                                                key === "height"
+                                                ? 12
+                                                : -200,
+                                              Number(e.target.value),
+                                            ),
+                                          },
+                                          true,
+                                        )
+                                      }
+                                      onBlur={finish}
+                                      onKeyUp={(e) => {
+                                        if (e.key === "Enter") finish();
+                                      }}
+                                    />
+                                  </label>
+                                ),
+                              )}
+                            </div>
                             <Range
                               label="Rotation"
                               value={layer.rotation}
@@ -995,60 +1118,208 @@ export default function App() {
                         )}
                       </>
                     )}
-                    {tool === "cut" && (
-                      <div className="cut-controls">
-                        <p className="panel-eyebrow">SCISSORS AT THE READY</p>
-                        <div className="segmented">
-                          <button
-                            className={axis === "horizontal" ? "active" : ""}
-                            onClick={() => setAxis("horizontal")}
-                          >
-                            Across
-                          </button>
-                          <button
-                            className={axis === "vertical" ? "active" : ""}
-                            onClick={() => setAxis("vertical")}
-                          >
-                            Down
-                          </button>
-                        </div>
-                        <p>
-                          Click your photo to cut. Then move each piece
-                          independently.
+                    {["crop", "cut", "repeat"].includes(tool) && (
+                      <div className="tool-target-controls">
+                        <p className="panel-eyebrow">
+                          {tool.toUpperCase()} TARGET
                         </p>
-                        <button
-                          className="secondary-button"
-                          disabled={!layer?.source}
-                          onClick={() => {
-                            if (layer) cutPhoto(layer.id);
-                          }}
-                        >
-                          <Scissors size={14} /> Split in half
-                        </button>
+                        <p className="field-hint">{help[tool]}</p>
+                        {tool === "cut" && (
+                          <>
+                            <div className="segmented">
+                              <button
+                                className={
+                                  cutMode === "straight" ? "active" : ""
+                                }
+                                onClick={() => setCutMode("straight")}
+                              >
+                                Straight
+                              </button>
+                              <button
+                                className={
+                                  cutMode === "freehand" ? "active" : ""
+                                }
+                                onClick={() => setCutMode("freehand")}
+                              >
+                                Freehand
+                              </button>
+                            </div>
+                            <label className="numeric-field">
+                              Line angle{" "}
+                              <input
+                                aria-label="Cut angle"
+                                type="number"
+                                min="-180"
+                                max="180"
+                                value={cutAngle}
+                                onChange={(e) =>
+                                  setCutAngle(Number(e.target.value))
+                                }
+                              />
+                            </label>
+                            <button
+                              className="secondary-button"
+                              disabled={!layer?.source}
+                              onClick={() => {
+                                if (layer) {
+                                  const a = (cutAngle * Math.PI) / 180;
+                                  cutPhoto(
+                                    layer.id,
+                                    [
+                                      [
+                                        layer.width / 2 -
+                                          Math.cos(a) * layer.width,
+                                        layer.height / 2 -
+                                          Math.sin(a) * layer.height,
+                                      ],
+                                      [
+                                        layer.width / 2 +
+                                          Math.cos(a) * layer.width,
+                                        layer.height / 2 +
+                                          Math.sin(a) * layer.height,
+                                      ],
+                                    ],
+                                    "straight",
+                                  );
+                                }
+                              }}
+                            >
+                              Cut through center
+                            </button>
+                          </>
+                        )}
+                        {tool === "repeat" && !grid && (
+                          <button
+                            className="secondary-button"
+                            disabled={layer?.kind !== "photo"}
+                            onClick={() => {
+                              if (layer) repeatPhoto(layer.id);
+                            }}
+                          >
+                            Repeat 3 × 3
+                          </button>
+                        )}
+                        {grid && tool === "repeat" && (
+                          <div className="numeric-fields">
+                            {(["x", "y", "width", "height"] as const).map(
+                              (key) => (
+                                <label className="numeric-field" key={key}>
+                                  {key}
+                                  <input
+                                    aria-label={"Grid " + key}
+                                    type="number"
+                                    min={
+                                      key === "width" || key === "height"
+                                        ? 12
+                                        : -200
+                                    }
+                                    value={Math.round(grid.box[key])}
+                                    onChange={(e) =>
+                                      adjustGrid(
+                                        {
+                                          ...grid.box,
+                                          [key]: Math.max(
+                                            key === "width" || key === "height"
+                                              ? 12
+                                              : -200,
+                                            Number(e.target.value),
+                                          ),
+                                        },
+                                        false,
+                                      )
+                                    }
+                                    onBlur={finish}
+                                    onKeyUp={(e) => {
+                                      if (e.key === "Enter") finish();
+                                    }}
+                                  />
+                                </label>
+                              ),
+                            )}
+                          </div>
+                        )}
+                        {layer?.kind === "photo" && tool === "crop" && (
+                          <div className="numeric-fields">
+                            {(["width", "height"] as const).map((key) => (
+                              <label className="numeric-field" key={key}>
+                                Crop {key}
+                                <input
+                                  aria-label={"Crop " + key}
+                                  type="number"
+                                  min="8"
+                                  max={Math.round(layer[key])}
+                                  defaultValue={Math.round(layer[key])}
+                                  key={layer.id + layer[key]}
+                                  onBlur={(e) => {
+                                    const size = Math.max(
+                                      8,
+                                      Math.min(
+                                        layer[key],
+                                        Number(e.target.value),
+                                      ),
+                                    );
+                                    updateLayer(
+                                      cropLayer(layer, {
+                                        x: 0,
+                                        y: 0,
+                                        width:
+                                          key === "width" ? size : layer.width,
+                                        height:
+                                          key === "height"
+                                            ? size
+                                            : layer.height,
+                                      }),
+                                    );
+                                  }}
+                                />
+                              </label>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </motion.div>
                 </AnimatePresence>
                 <div className="save-panel">
                   <p>One for the keepsake box.</p>
+                  <label className="format-selector">
+                    Download format
+                    <select
+                      aria-label="Download format"
+                      value={format}
+                      onChange={(e) =>
+                        setFormat(e.target.value as ExportFormat)
+                      }
+                    >
+                      <option value="png">PNG</option>
+                      <option value="jpeg">JPEG</option>
+                      <option value="heic">HEIC</option>
+                      <option value="svg">SVG</option>
+                    </select>
+                  </label>
                   <div className="export-row">
                     <button
                       className="primary-button download-main"
                       disabled={!asset || busy || exporting}
-                      onClick={() => void exportFile("png")}
+                      onClick={() => void exportFile()}
                     >
                       <Download size={16} />
-                      {exporting ? "Developing…" : "Download PNG"}
+                      {exporting
+                        ? "Preparing…"
+                        : "Download " + format.toUpperCase()}
                     </button>
                     <button
-                      className="svg-download"
+                      className="print-button"
+                      aria-label="Print Polaroid"
                       disabled={!asset || busy || exporting}
-                      onClick={() => void exportFile("svg")}
-                      title="Download a self-contained SVG collage"
+                      onClick={() => void exportFile(true)}
                     >
-                      SVG <ArrowDownToLine size={13} />
+                      <Printer size={17} /> Print
                     </button>
                   </div>
+                  <p className="print-guidance">
+                    88 × 107 mm · Print at Actual size / 100% scale.
+                  </p>
                   <span>YOUR POLAROID. READY TO KEEP.</span>
                 </div>
               </aside>
@@ -1203,8 +1474,9 @@ export default function App() {
                   and paper. Try a faded film or copier effect.
                 </li>
                 <li>
-                  <b>Keep the Polaroid.</b> Download PNG for sharing or SVG for
-                  a self-contained collage. Both include your Polaroid frame.
+                  <b>Keep the Polaroid.</b> Download JPEG, HEIC, PNG, or SVG, or
+                  print at 88 × 107 mm. Every output includes your Polaroid
+                  frame.
                 </li>
               </ol>
               <p className="modal-footnote">
@@ -1411,21 +1683,22 @@ function InfoModal({
     </motion.div>
   );
 }
-
 function PresetThumbnail({
   asset,
   composition,
+  crop,
   film,
   copier,
 }: {
   asset: Asset | null;
   composition: Composition;
+  crop: typeof DEFAULT_CROP;
   film: number;
   copier: number;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const signature = JSON.stringify([
-    composition.crop,
+    crop,
     composition.effects.seed,
     film,
     copier,
@@ -1436,7 +1709,7 @@ function PresetThumbnail({
     texture(
       asset,
       {
-        ...composition,
+        crop,
         effects: { film, copier, seed: composition.effects.seed },
       },
       0.2,

@@ -1,270 +1,275 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { animate, motion, type AnimationPlaybackControls } from "motion/react";
-import { paintComposition, texture } from "./render";
+import { paintComposition, prepareTextures, type Textures } from "./render";
 import {
-  bounds,
+  WORKSPACE,
+  clone,
+  cropLayer,
   hitTest,
   localPoint,
-  type Asset,
+  worldPoint,
+  type Assets,
   type Composition,
+  type Layer,
+  type Point,
   type Tool,
 } from "./model";
 import {
-  detectCut,
   layerPose,
   pointerInComposition,
-  type CutFeedback,
   type Presentation,
 } from "./presentation";
 
+export function resizeBox(
+  layer: Layer,
+  p: { x: number; y: number },
+  corner: string,
+): Layer {
+  let left = 0,
+    top = 0,
+    right = layer.width,
+    bottom = layer.height;
+  if (corner.includes("w")) left = Math.min(layer.width - 12, p.x);
+  else right = Math.max(12, p.x);
+  if (corner.includes("n")) top = Math.min(layer.height - 12, p.y);
+  else bottom = Math.max(12, p.y);
+  const width = right - left,
+    height = bottom - top,
+    center = worldPoint(layer, left + width / 2, top + height / 2);
+  return {
+    ...layer,
+    x: center.x - width / 2,
+    y: center.y - height / 2,
+    width,
+    height,
+  };
+}
+type Gesture = {
+  original: Composition;
+  layer: Layer;
+  point: { x: number; y: number };
+  offset: { x: number; y: number };
+  mode: string;
+  corner: string;
+  points: Point[];
+};
 export default function Stage({
-  asset,
+  assets,
   composition,
   selected,
   tool,
-  axis,
+  cutMode,
   enabled,
-  onDown,
-  onMove,
-  onUp,
+  grid,
+  onSelect,
+  onChange,
+  onRepeat,
+  onCut,
+  onGrid,
   onError,
 }: {
-  asset: Asset;
+  assets: Assets;
   composition: Composition;
   selected: string | null;
   tool: Tool;
-  axis: "horizontal" | "vertical";
+  cutMode: "straight" | "freehand";
   enabled: boolean;
-  onDown: (x: number, y: number, id?: string) => string | null;
-  onMove: (x: number, y: number) => void;
-  onUp: () => void;
+  grid?: Layer;
+  onSelect: (id: string | null) => void;
+  onChange: (value: Composition, final: boolean) => void;
+  onRepeat: (id: string) => void;
+  onCut: (id: string, points: Point[]) => void;
+  onGrid: (value: Layer, final: boolean) => void;
   onError: (message: string) => void;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null),
-    version = useRef(0);
-  const photo = useRef<{ asset: Asset; canvas: HTMLCanvasElement } | null>(
-    null,
-  );
+  const canvas = useRef<HTMLCanvasElement>(null),
+    version = useRef(0),
+    photos = useRef<Textures>({}),
+    gesture = useRef<Gesture | null>(null),
+    pending = useRef<Composition | null>(null);
   const [ready, setReady] = useState(0),
-    [hover, setHover] = useState<{ x: number; y: number } | null>(null);
-  const [presentation, setPresentation] = useState<Presentation>({
-    development: enabled ? 0 : 1,
-    layers: {},
-  });
-  const presentationRef = useRef(presentation);
-  const [cut, setCut] = useState<(CutFeedback & { progress: number }) | null>(
-    null,
-  );
-  const [dragged, setDragged] = useState<string | null>(null);
-  const animations = useRef(new Map<string, AnimationPlaybackControls>());
-  const developed = useRef<Asset | null>(null),
-    previous = useRef({ asset, composition });
-  const update = (fn: (value: Presentation) => Presentation) => {
-    const next = fn(presentationRef.current);
-    presentationRef.current = next;
-    setPresentation(next);
-  };
-  const run = (
+    [presentation, setPresentation] = useState<Presentation>({
+      development: enabled ? 0 : 1,
+      layers: {},
+    });
+  const presentationRef = useRef(presentation),
+    controllers = useRef(new Map<string, AnimationPlaybackControls>());
+  const [box, setBox] = useState<Layer | null>(null),
+    [stroke, setStroke] = useState<Point[]>([]),
+    [seam, setSeam] = useState<Point[]>([]);
+  const first = useRef(true),
+    previous = useRef(new Set<string>()),
+    seenAssets = useRef(new Set<string>());
+  const signature = JSON.stringify([
+    composition.effects,
+    composition.layers
+      .filter((l) => l.kind === "photo")
+      .map((l) => [l.id, l.assetId, l.crop]),
+  ]);
+  function update(fn: (p: Presentation) => Presentation) {
+    presentationRef.current = fn(presentationRef.current);
+    setPresentation(presentationRef.current);
+  }
+  function run(
     key: string,
     from: number,
     to: number,
     duration: number,
-    onUpdate: (v: number) => void,
+    change: (v: number) => void,
     spring = false,
-  ) => {
-    animations.current.get(key)?.stop();
-    const controls = animate(from, to, {
-      ...(spring
-        ? { type: "spring", stiffness: 360, damping: 27 }
-        : { duration, ease: "easeOut" }),
-      onUpdate,
-      onComplete: () => animations.current.delete(key),
-    });
-    animations.current.set(key, controls);
-  };
-  const lift = (id: string, value: number) => {
-    if (!enabled) return;
-    run(
-      `lift-${id}`,
-      presentationRef.current.layers?.[id]?.lift || 0,
-      value,
-      0.24,
-      (v) =>
-        update((p) => ({
-          ...p,
-          layers: { ...p.layers, [id]: { ...p.layers?.[id], lift: v } },
-        })),
-      true,
+  ) {
+    controllers.current.get(key)?.stop();
+    controllers.current.set(
+      key,
+      animate(from, to, {
+        ...(spring
+          ? { type: "spring", stiffness: 360, damping: 27 }
+          : { duration, ease: "easeOut" }),
+        onUpdate: change,
+        onComplete: () => controllers.current.delete(key),
+      }),
     );
-  };
-  const extent = bounds(composition);
-  const region = {
-    x: Math.min(-35, extent.x - 24),
-    y: Math.min(0, extent.y - 24),
-    width:
-      Math.max(635, extent.x + extent.width + 24) -
-      Math.min(-35, extent.x - 24),
-    height:
-      Math.max(710, extent.y + extent.height + 24) - Math.min(0, extent.y - 24),
-  };
-  const heldRegion = useRef<typeof region | null>(null),
-    view = heldRegion.current || region;
-  const pointerOffset = useRef({ x: 0, y: 0 });
-  const textureSignature = JSON.stringify([
-    composition.crop,
-    composition.effects,
-  ]);
-
+  }
+  function lift(id: string, value: number) {
+    if (enabled)
+      run(
+        "lift-" + id,
+        presentationRef.current.layers?.[id]?.lift || 0,
+        value,
+        0.24,
+        (v) =>
+          update((p) => ({
+            ...p,
+            layers: { ...p.layers, [id]: { ...p.layers?.[id], lift: v } },
+          })),
+        true,
+      );
+  }
   useEffect(() => {
     const ticket = ++version.current;
-    if (photo.current?.asset !== asset) photo.current = null;
-    Promise.all([texture(asset, composition, 1.5), document.fonts.ready])
-      .then(([bitmap]) => {
+    void Promise.all([
+      prepareTextures(assets, composition, 1.5),
+      document.fonts.ready,
+    ])
+      .then(([textures]) => {
         if (ticket !== version.current) return;
-        photo.current = { asset, canvas: bitmap };
+        photos.current = textures;
         setReady((v) => v + 1);
-        if (developed.current !== asset) {
-          developed.current = asset;
-          if (enabled) {
-            update((p) => ({ ...p, development: 0 }));
-            run("development", 0, 1, 2, (v) =>
+        if (first.current) {
+          first.current = false;
+          if (enabled)
+            run("develop", 0, 1, 2, (v) =>
               update((p) => ({ ...p, development: v })),
             );
-          } else update((p) => ({ ...p, development: 1 }));
+          else update((p) => ({ ...p, development: 1 }));
         }
       })
-      .catch((error) => {
+      .catch((e) => {
         if (ticket === version.current)
           onError(
-            error instanceof Error
-              ? error.message
-              : "Could not render your photograph.",
+            e instanceof Error ? e.message : "Could not render this collage.",
           );
       });
     return () => {
       version.current++;
     };
-  }, [asset, textureSignature, onError]);
-
+  }, [assets, signature, onError]);
   useEffect(() => {
-    if (document.hidden || photo.current?.asset !== asset || !canvasRef.current)
-      return;
-    paintComposition(
-      canvasRef.current,
-      photo.current.canvas,
-      composition,
-      view,
-      1.5,
-      presentation,
-    );
-  }, [
-    asset,
-    composition,
-    presentation,
-    ready,
-    view.x,
-    view.y,
-    view.width,
-    view.height,
-    enabled,
-  ]);
-
-  useEffect(() => {
-    if (previous.current.asset !== asset) {
-      animations.current.forEach((a) => a.stop());
-      animations.current.clear();
-      developed.current = null;
-      photo.current = null;
-      setDragged(null);
-      heldRegion.current = null;
-      setCut(null);
-      update(() => ({ development: enabled ? 0 : 1, layers: {} }));
-      previous.current = { asset, composition };
-      return;
-    }
-    const old = previous.current.composition;
-    previous.current = { asset, composition };
-    if (!enabled) return;
-    const oldIds = new Set(old.layers.map((l) => l.id)),
-      newIds = new Set(composition.layers.map((l) => l.id));
-    if (
-      Object.keys(presentationRef.current.layers || {}).some(
-        (id) => !newIds.has(id),
-      )
-    )
-      update((p) => ({
-        ...p,
-        layers: Object.fromEntries(
-          Object.entries(p.layers || {}).filter(([id]) => newIds.has(id)),
-        ),
-      }));
-    for (const [key, animation] of animations.current) {
-      if (
-        key !== "development" &&
-        key !== "cut" &&
-        !newIds.has(key.replace(/^(arrival|lift)-/, ""))
-      ) {
-        animation.stop();
-        animations.current.delete(key);
-      }
-    }
-    const feedback = detectCut(old, composition);
-    const added = composition.layers.filter((l) => !oldIds.has(l.id));
-    if (feedback) {
-      setCut({ ...feedback, progress: 0 });
-      run("cut", 0, 1, 0.65, (v) =>
-        setCut(v < 1 ? { ...feedback, progress: v } : null),
-      );
-    }
-    for (const l of added) {
-      const side = feedback?.ids.indexOf(l.id),
-        direction = side === 0 ? -1 : 1;
-      update((p) => ({
-        ...p,
-        layers: {
-          ...p.layers,
-          [l.id]: {
-            arrival: 0,
-            cutX: feedback ? feedback.dx * direction : 0,
-            cutY: feedback ? feedback.dy * direction : undefined,
-          },
-        },
-      }));
-      run(
-        `arrival-${l.id}`,
-        0,
-        1,
-        0.45,
-        (v) =>
+    const ids = new Set(composition.layers.map((l) => l.id));
+    if (enabled)
+      for (const l of composition.layers)
+        if (!previous.current.has(l.id) && previous.current.size) {
+          const developing =
+            l.kind === "photo" && !seenAssets.current.has(l.assetId!);
           update((p) => ({
             ...p,
             layers: {
               ...p.layers,
-              [l.id]: { ...p.layers?.[l.id], arrival: v },
+              [l.id]: { arrival: 0, development: developing ? 0 : 1 },
             },
-          })),
-        true,
-      );
-    }
-  }, [asset, composition, enabled]);
-
+          }));
+          if (developing)
+            run("development-" + l.id, 0, 1, 2, (v) =>
+              update((p) => ({
+                ...p,
+                layers: {
+                  ...p.layers,
+                  [l.id]: { ...p.layers?.[l.id], development: v },
+                },
+              })),
+            );
+          run(
+            "arrival-" + l.id,
+            0,
+            1,
+            0.4,
+            (v) =>
+              update((p) => ({
+                ...p,
+                layers: {
+                  ...p.layers,
+                  [l.id]: { ...p.layers?.[l.id], arrival: v },
+                },
+              })),
+            true,
+          );
+        }
+    for (const [key, c] of controllers.current)
+      if (
+        key !== "develop" &&
+        !ids.has(key.replace(/^(arrival|lift|development)-/, ""))
+      ) {
+        c.stop();
+        controllers.current.delete(key);
+      }
+    update((p) => ({
+      ...p,
+      layers: Object.fromEntries(
+        Object.entries(p.layers || {}).filter(([id]) => ids.has(id)),
+      ),
+    }));
+    previous.current = ids;
+    composition.layers.forEach((l) => {
+      if (l.assetId) seenAssets.current.add(l.assetId);
+    });
+  }, [composition.layers, enabled]);
   useEffect(() => {
     if (!enabled) {
-      animations.current.forEach((a) => a.stop());
-      animations.current.clear();
-      developed.current = asset;
+      controllers.current.forEach((c) => c.stop());
+      controllers.current.clear();
       update(() => ({ development: 1, layers: {} }));
-      setCut(null);
+      setSeam([]);
     }
-  }, [enabled, asset]);
+  }, [enabled]);
   useEffect(
     () => () => {
-      animations.current.forEach((a) => a.stop());
-      animations.current.clear();
+      controllers.current.forEach((c) => c.stop());
+      controllers.current.clear();
     },
     [],
   );
-
+  useEffect(() => {
+    if (!document.hidden && canvas.current)
+      paintComposition(
+        canvas.current,
+        photos.current,
+        composition,
+        WORKSPACE,
+        1.5,
+        presentation,
+      );
+  }, [composition, presentation, ready, enabled]);
+  useEffect(() => {
+    gesture.current = null;
+    pending.current = null;
+    setBox(null);
+    setStroke([]);
+  }, [tool]);
+  const poses = composition.layers.map((l) =>
+    layerPose(l, presentation.layers?.[l.id]),
+  );
+  const target = box || grid || poses.find((l) => l.id === selected),
+    active = gesture.current;
   const point = (event: PointerEvent<SVGSVGElement>) => {
     const matrix = event.currentTarget.getScreenCTM();
     if (matrix) {
@@ -275,130 +280,312 @@ export default function Stage({
     }
     const rect = event.currentTarget.getBoundingClientRect();
     return {
-      x: view.x + ((event.clientX - rect.left) / rect.width) * view.width,
-      y: view.y + ((event.clientY - rect.top) / rect.height) * view.height,
+      x:
+        WORKSPACE.x +
+        ((event.clientX - rect.left) / rect.width) * WORKSPACE.width,
+      y:
+        WORKSPACE.y +
+        ((event.clientY - rect.top) / rect.height) * WORKSPACE.height,
     };
   };
-  const poses = composition.layers.map((l) =>
-    layerPose(l, presentation.layers?.[l.id]),
-  );
-  const layer = poses.find((l) => l.id === selected),
-    hovering = layer && hover ? localPoint(layer, hover.x, hover.y) : null;
-  const canCut =
-    tool === "cut" &&
-    layer?.kind === "photo" &&
-    hovering &&
-    hovering.x >= 0 &&
-    hovering.y >= 0 &&
-    hovering.x <= layer.width &&
-    hovering.y <= layer.height;
-  const release = () => {
-    if (dragged) lift(dragged, 0);
-    setDragged(null);
-    onUp();
-    heldRegion.current = null;
-    pointerOffset.current = { x: 0, y: 0 };
+  const finish = (cancel = false) => {
+    const g = gesture.current;
+    if (!g) return;
+    gesture.current = null;
+    if (g.mode === "cut") {
+      if (!cancel) {
+        onCut(g.layer.id, g.points);
+        setSeam(
+          g.points.map((p) => {
+            const v = worldPoint(g.layer, ...p);
+            return [v.x, v.y];
+          }),
+        );
+      }
+    } else if (g.mode === "grid" || g.mode === "grid-resize") {
+      if (cancel) onGrid(g.layer, true);
+      else if (box) onGrid(box, true);
+    } else if (pending.current) {
+      onChange(cancel ? g.original : pending.current, true);
+    }
+    lift(g.layer.id, 0);
+    pending.current = null;
+    setBox(null);
+    setStroke([]);
   };
   return (
     <motion.div
-      className={`artboard tool-${tool} ${dragged ? "is-dragging" : ""}`}
-      style={{ aspectRatio: `${view.width}/${view.height}`, rotate: -3 }}
-      initial={enabled ? { y: 65, opacity: 0 } : false}
-      animate={enabled ? "visible" : "still"}
-      variants={{
-        visible: {
-          y: 0,
-          opacity: 1,
-          transition: { type: "spring", stiffness: 130, damping: 20 },
-        },
-        still: { y: 0, opacity: 1, transition: { duration: 0 } },
+      className={"artboard tool-" + tool + (active ? " is-dragging" : "")}
+      style={{
+        aspectRatio: WORKSPACE.width + "/" + WORKSPACE.height,
+        rotate: -3,
       }}
+      initial={enabled ? { y: 65, opacity: 0 } : false}
+      animate={{ y: 0, opacity: 1 }}
+      transition={
+        enabled
+          ? { type: "spring", stiffness: 130, damping: 20 }
+          : { duration: 0 }
+      }
     >
-      <canvas
-        ref={canvasRef}
-        aria-label="Your Polaroid composition"
-        role="img"
-      />
+      <canvas ref={canvas} aria-label="Your Polaroid composition" role="img" />
       <svg
         className="interaction"
         tabIndex={0}
-        viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
-        aria-label="Drag your photo and collage pieces; use arrow keys to nudge the selected piece"
+        viewBox={
+          WORKSPACE.x +
+          " " +
+          WORKSPACE.y +
+          " " +
+          WORKSPACE.width +
+          " " +
+          WORKSPACE.height
+        }
+        aria-label="Polaroid editor. Select pieces, drag handles to resize, or draw a cut."
         onPointerDown={(e) => {
           if (e.button !== 0) return;
-          heldRegion.current = view;
+          const p = point(e),
+            handle = (e.target as SVGElement).getAttribute("data-handle") || "";
+          const photosOnly =
+            tool === "cut" || tool === "crop" || tool === "repeat";
+          const pose =
+            handle && target ? target : hitTest(poses, p.x, p.y, photosOnly);
+          if (!pose) {
+            onSelect(null);
+            return;
+          }
+          const stored =
+            grid && tool === "repeat"
+              ? grid
+              : composition.layers.find((l) => l.id === pose.id)!;
+          if (tool === "repeat" && !grid) {
+            onSelect(stored.id);
+            onRepeat(stored.id);
+            return;
+          }
           e.currentTarget.setPointerCapture(e.pointerId);
           e.currentTarget.focus();
-          const p = point(e),
-            pose = hitTest(poses, p.x, p.y),
-            stored = composition.layers.find((l) => l.id === pose?.id);
-          const mapped =
-            pose && stored ? pointerInComposition(stored, pose, p.x, p.y) : p;
-          pointerOffset.current = { x: mapped.x - p.x, y: mapped.y - p.y };
-          const id = onDown(mapped.x, mapped.y, pose?.id);
-          if (id) {
-            setDragged(id);
-            lift(id, 1);
-          }
+          // Handle coordinates are attached to the stored target; moving uses the visual pose.
+          const mapped = grid
+            ? p
+            : pointerInComposition(stored, pose, p.x, p.y);
+          const local = localPoint(stored, mapped.x, mapped.y);
+          const mode = grid
+            ? handle
+              ? "grid-resize"
+              : "grid"
+            : handle === "rotate"
+              ? "rotate"
+              : handle
+                ? tool === "crop"
+                  ? "crop-resize"
+                  : "resize"
+                : tool === "cut"
+                  ? "cut"
+                  : tool === "crop"
+                    ? "crop-draw"
+                    : "move";
+          gesture.current = {
+            original: clone(composition),
+            layer: clone(stored),
+            point: mapped,
+            offset: { x: mapped.x - p.x, y: mapped.y - p.y },
+            mode,
+            corner: handle,
+            points: [[local.x, local.y]],
+          };
+          if (selected !== stored.id && !grid) onSelect(stored.id);
+          if (mode === "move") lift(stored.id, 1);
+          if (mode === "cut") setStroke([[mapped.x, mapped.y]]);
         }}
         onPointerMove={(e) => {
-          const p = point(e);
-          setHover(p);
-          if (e.currentTarget.hasPointerCapture(e.pointerId))
-            onMove(
-              p.x + pointerOffset.current.x,
-              p.y + pointerOffset.current.y,
+          const g = gesture.current;
+          if (!g || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
+          const raw = point(e),
+            p = { x: raw.x + g.offset.x, y: raw.y + g.offset.y },
+            local = localPoint(g.layer, p.x, p.y);
+          if (g.mode === "cut") {
+            const value: Point = [local.x, local.y];
+            g.points =
+              cutMode === "straight"
+                ? [g.points[0], value]
+                : [...g.points, value];
+            setStroke(
+              g.points.map((q) => {
+                const v = worldPoint(g.layer, ...q);
+                return [v.x, v.y];
+              }),
             );
+            return;
+          }
+          let nextLayer = { ...g.layer };
+          if (g.mode === "move" || g.mode === "grid") {
+            nextLayer.x += p.x - g.point.x;
+            nextLayer.y += p.y - g.point.y;
+          } else if (g.mode === "rotate") {
+            const center = {
+              x: g.layer.x + g.layer.width / 2,
+              y: g.layer.y + g.layer.height / 2,
+            };
+            const start = Math.atan2(
+                g.point.y - center.y,
+                g.point.x - center.x,
+              ),
+              now = Math.atan2(p.y - center.y, p.x - center.x);
+            nextLayer.rotation =
+              ((g.layer.rotation + ((now - start) * 180) / Math.PI + 540) %
+                360) -
+              180;
+          } else if (g.mode === "crop-draw") {
+            const start = localPoint(g.layer, g.point.x, g.point.y),
+              x = Math.max(0, Math.min(start.x, local.x)),
+              y = Math.max(0, Math.min(start.y, local.y));
+            const width =
+                Math.min(g.layer.width, Math.max(start.x, local.x)) - x,
+              height = Math.min(g.layer.height, Math.max(start.y, local.y)) - y;
+            if (width < 8 || height < 8) return;
+            nextLayer = cropLayer(g.layer, { x, y, width, height });
+          } else if (g.mode === "crop-resize") {
+            const r = resizeBox(
+              g.layer,
+              {
+                x: Math.max(0, Math.min(g.layer.width, local.x)),
+                y: Math.max(0, Math.min(g.layer.height, local.y)),
+              },
+              g.corner,
+            );
+            const center = localPoint(
+              g.layer,
+              r.x + r.width / 2,
+              r.y + r.height / 2,
+            );
+            nextLayer = cropLayer(g.layer, {
+              x: center.x - r.width / 2,
+              y: center.y - r.height / 2,
+              width: r.width,
+              height: r.height,
+            });
+          } else nextLayer = resizeBox(g.layer, local, g.corner);
+          setBox(nextLayer);
+          if (g.mode.startsWith("grid")) {
+            onGrid(nextLayer, false);
+            return;
+          }
+          const next = clone(g.original);
+          next.layers = next.layers.map((l) =>
+            l.id === g.layer.id ? nextLayer : l,
+          );
+          pending.current = next;
+          onChange(next, false);
         }}
-        onPointerUp={release}
-        onPointerCancel={release}
-        onPointerLeave={() => setHover(null)}
+        onPointerUp={() => finish()}
+        onPointerCancel={() => finish(true)}
+        onLostPointerCapture={() => {
+          if (gesture.current) finish(true);
+        }}
       >
-        {layer && tool !== "crop" && (
+        {target && (
           <g
-            transform={`translate(${layer.x + layer.width / 2} ${layer.y + layer.height / 2}) rotate(${layer.rotation}) translate(${-layer.width / 2} ${-layer.height / 2})`}
+            transform={
+              "translate(" +
+              (target.x + target.width / 2) +
+              " " +
+              (target.y + target.height / 2) +
+              ") rotate(" +
+              target.rotation +
+              ") translate(" +
+              -target.width / 2 +
+              " " +
+              -target.height / 2 +
+              ")"
+            }
           >
             <rect
               x="-3"
               y="-3"
-              width={layer.width + 6}
-              height={layer.height + 6}
+              width={target.width + 6}
+              height={target.height + 6}
               className="selection"
             />
-            {[
-              [0, 0],
-              [layer.width, 0],
-              [0, layer.height],
-              [layer.width, layer.height],
-            ].map(([x, y], i) => (
+            <text className="target-label" x="0" y="-13">
+              {grid
+                ? "REPEAT · 3 × 3"
+                : tool === "crop"
+                  ? "CROP TARGET"
+                  : tool === "cut"
+                    ? "CUT TARGET"
+                    : target.kind === "tape"
+                      ? "TAPE"
+                      : target.name}
+            </text>
+            {(["nw", "ne", "sw", "se"] as const).map((corner, i) => (
               <rect
-                key={i}
-                x={x - 4}
-                y={y - 4}
-                width="8"
-                height="8"
+                key={corner}
+                x={(i % 2 ? target.width : 0) - 7}
+                y={(i > 1 ? target.height : 0) - 7}
+                width="14"
+                height="14"
+                data-handle={corner}
                 className="handle"
+                aria-label={"Resize " + corner}
               />
             ))}
-            {canCut && (
-              <line
-                x1={axis === "vertical" ? hovering!.x : 0}
-                x2={axis === "vertical" ? hovering!.x : layer.width}
-                y1={axis === "horizontal" ? hovering!.y : 0}
-                y2={axis === "horizontal" ? hovering!.y : layer.height}
-                className="cut-guide"
-              />
+            {tool !== "crop" && tool !== "cut" && !grid && (
+              <>
+                <line
+                  x1={target.width / 2}
+                  y1="0"
+                  x2={target.width / 2}
+                  y2="-32"
+                  className="rotation-stem"
+                />
+                <circle
+                  cx={target.width / 2}
+                  cy="-32"
+                  r="9"
+                  data-handle="rotate"
+                  className="handle rotation-handle"
+                  aria-label="Rotate selected piece"
+                />
+              </>
             )}
+            {grid &&
+              [1, 2].map((n) => (
+                <g key={n}>
+                  <line
+                    x1={(target.width * n) / 3}
+                    x2={(target.width * n) / 3}
+                    y1="0"
+                    y2={target.height}
+                    className="selection"
+                  />
+                  <line
+                    y1={(target.height * n) / 3}
+                    y2={(target.height * n) / 3}
+                    x1="0"
+                    x2={target.width}
+                    className="selection"
+                  />
+                </g>
+              ))}
           </g>
         )}
-        {cut && (
-          <line
-            x1={cut.x1}
-            y1={cut.y1}
-            x2={cut.x1 + (cut.x2 - cut.x1) * Math.min(1, cut.progress * 4)}
-            y2={cut.y1 + (cut.y2 - cut.y1) * Math.min(1, cut.progress * 4)}
-            opacity={1 - cut.progress}
+        {stroke.length > 0 && (
+          <polyline
+            points={stroke.map((p) => p.join(",")).join(" ")}
+            className="cut-guide"
+            fill="none"
+          />
+        )}
+        {seam.length > 1 && enabled && (
+          <motion.polyline
+            key={seam.map((p) => p.join()).join()}
+            points={seam.map((p) => p.join(",")).join(" ")}
             className="cut-feedback"
+            fill="none"
+            initial={{ opacity: 1, pathLength: 0 }}
+            animate={{ opacity: 0, pathLength: 1 }}
+            transition={{ duration: 0.65 }}
           />
         )}
       </svg>
