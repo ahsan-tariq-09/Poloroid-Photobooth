@@ -12,7 +12,7 @@ TypeScript and the production build pass. The initial application bundle is sepa
 
 ## Multi-photo editing and output regression coverage
 
-The current suite covers fixed frame/aperture geometry, photo-only clipping, band-aware hit testing, source-preserving rotated crops, arbitrary-angle and freehand cuts, repeated cuts, invalid/self-crossing strokes, 3×3 fitting, grid transforms, and independent source references.
+The current suite covers fixed frame/aperture geometry, photo-only clipping, band-aware hit testing, source-preserving rotated crops, arbitrary-angle and freehand cuts, repeated straight/freehand cuts on irregular fragment edges, invalid/self-crossing strokes, 3×3 fitting, grid transforms, and independent source references.
 
 Actual React pointer events exercise corner resizing, drawn cuts, crop rectangles and tape rotation. Component tests cover sequential slow HEIC uploads followed by SVG, mixed batches with decoding failures, source retention across Undo/Redo, Reset, single duplication versus Repeat, camera permission/cleanup, all format selections, printing and unchanged STL links.
 
@@ -42,7 +42,7 @@ Real PNG/JPEG/SVG downloads from the same cut collage all measured 1560 × 1899 
 
 Visual review caught secondary-button color and mobile action-row overflow regressions; both were corrected before final publication. Desktop/mobile verification images are saved alongside this document. Print preparation is covered by the DOM/geometry tests; no physical print was sent.
 
-The suite has 48 passing tests. TypeScript, production and Docker builds pass. The dependency audit reports zero vulnerabilities. The initial JS chunk is about 512 kB before gzip; both HEIC codec bundles remain lazy-loaded.
+The suite has 49 passing tests. TypeScript, production and Docker builds pass. The dependency audit reports zero vulnerabilities. The initial JS chunk is about 512 kB before gzip; both HEIC codec bundles remain lazy-loaded.
 
 ## Verification limits
 

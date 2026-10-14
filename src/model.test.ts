@@ -86,6 +86,40 @@ describe("collage geometry", () => {
     expect(next.layers).toHaveLength(2);
     expect(next.layers.some((l) => l.mask![0][0].length > 100)).toBe(true);
   });
+  it("accepts a freehand cut starting on a previous diagonal cut edge", () => {
+    const c = initialComposition(),
+      split = cutLayer(
+        c,
+        c.layers[0].id,
+        [
+          [0, 0],
+          [460, 460],
+        ],
+        "straight",
+      );
+    const l = split.layers[0],
+      ring = shape(l)[0][0];
+    const edges = ring.slice(0, -1).map((a, i) => ({ a, b: ring[i + 1] }));
+    const diagonal = edges.find(
+      ({ a, b }) => Math.abs(b[0] - a[0]) > 200 && Math.abs(b[1] - a[1]) > 200,
+    )!;
+    const other = edges.find((e) => e !== diagonal)!;
+    const start: [number, number] = [
+      (diagonal.a[0] + diagonal.b[0]) / 2,
+      (diagonal.a[1] + diagonal.b[1]) / 2,
+    ];
+    const end: [number, number] = [
+      (other.a[0] + other.b[0]) / 2,
+      (other.a[1] + other.b[1]) / 2,
+    ];
+    const center: [number, number] = [
+      ring.slice(0, -1).reduce((s, p) => s + p[0], 0) / 3,
+      ring.slice(0, -1).reduce((s, p) => s + p[1], 0) / 3,
+    ];
+    expect(
+      cutLayer(split, l.id, [start, center, end], "freehand").layers.length,
+    ).toBeGreaterThan(2);
+  });
   it("rejects short, self-crossing and interior freehand strokes without mutation", () => {
     const c = initialComposition(),
       before = structuredClone(c),

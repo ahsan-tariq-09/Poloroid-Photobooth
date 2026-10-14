@@ -353,6 +353,27 @@ export function cutLayer(
       const edge = edgePoint(point, w, h);
       if (Math.hypot(edge[0] - point[0], edge[1] - point[1]) <= 16) return edge;
       const visible = worldPoint(layer, ...point);
+      const nearCutEdge = shape(layer).some((poly) =>
+        poly.some((ring) =>
+          ring.some((a, i) => {
+            const b = ring[(i + 1) % ring.length],
+              dx = b[0] - a[0],
+              dy = b[1] - a[1];
+            const t = Math.max(
+              0,
+              Math.min(
+                1,
+                ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) /
+                  (dx * dx + dy * dy || 1),
+              ),
+            );
+            return (
+              Math.hypot(point[0] - a[0] - t * dx, point[1] - a[1] - t * dy) <=
+              16
+            );
+          }),
+        ),
+      );
       const nearOpening =
         inOpening(visible.x, visible.y) &&
         Math.min(
@@ -361,7 +382,7 @@ export function cutLayer(
           visible.y - PHOTO.y,
           PHOTO.y + PHOTO.size - visible.y,
         ) <= 16;
-      if (!nearOpening) return point;
+      if (!nearOpening && !nearCutEdge) return point;
       const dx = point[0] - neighbor[0],
         dy = point[1] - neighbor[1];
       const hits: { t: number; p: Point }[] = [];
