@@ -27,6 +27,14 @@ pnpm build
 pnpm preview
 ```
 
+## Deploy with Vercel
+
+`vercel.json` configures the Vite build and static `dist` output. Use Node 24 and set the build environment variable `ENABLE_EXPERIMENTAL_COREPACK=1` so Vercel uses the pinned pnpm version in `package.json`. No application secrets or backend are required.
+
+The Vercel project is `poloroid-photobooth` in `knightahsan09-7593`. Preview deployments require Vercel authentication. The initial deployment uses the local checkout because the Vercel account does not yet have a GitHub login connection. To enable automatic deployments, connect GitHub in Vercel and link `ahsan-tariq-09/Poloroid-Photobooth` in the project's Git settings.
+
+For a manual preview, link the checkout to that project, verify the project and workspace with `vercel project inspect --non-interactive`, then run `vercel deploy --target preview`. Local `.vercel/` settings and environment files are excluded from Git.
+
 ## Use the studio
 
 - Add multiple JPG/JPEG, PNG, HEIC/HEIF, or self-contained SVG files through the picker or drag-and-drop. The first upload replaces the demo; later photos join the same Polaroid. Files decode sequentially, and an invalid file does not discard the others. Camera stills join the collage too.

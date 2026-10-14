@@ -1,0 +1,13 @@
+.git
+.vercel
+node_modules
+dist
+.sites-runtime
+.sites-checkout
+.openai
+docs
+test-results
+playwright-report
+*.tsbuildinfo
+.env*
+!.env.example
