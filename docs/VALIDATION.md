@@ -60,6 +60,12 @@ The old Duplicate action and unused styles were removed. Radix supplies accessib
 
 TypeScript, the production build, the final Docker build and the dependency audit all pass. A temporary container served `/`, `/edit`, `/finish` and an STL download with HTTP 200 and was stopped afterward.
 
+## Repeated scissors regression — October 16, 2026
+
+Reproduced the reported failure in the public browser: the first scissors gesture selected the SVG “Cut target” text; the second became a native browser text drag, emitted pointer cancellation, and never reached the cutting operation. The fix disables SVG text selection, prevents the mouse gesture's default text drag and cancels native `dragstart`. Explicit SVG focus now uses `preventScroll` so focusing a partly visible canvas cannot shift the stroke mid-gesture. Pointer capture remains; touch/pen events still reach the context menu's long-press timer.
+
+**70 tests pass.** New regressions exercise three consecutive freehand cuts through generated fragments without changing tools, check that mouse gestures and native label drags cannot take over, and retain the touch cut path. Browser verification confirmed piece counts of 1 → 2 → 3 → 4, followed by Undo/Redo and another successful cut to five pieces, with no selected label text. TypeScript, production and Docker builds pass.
+
 ## Verification limits
 
 Physical-printer measurements, physical-camera output, real iPhone/Safari portrait orientation, and WebGPU hardware/device-loss behavior remain unverified. Camera stream cleanup and denied-permission handling are covered by component tests; the HEIC decoder and offline PNG/SVG rendering are covered by actual decoding/rendering tests. Live touch gestures and screen-reader behavior still benefit from testing on target devices.

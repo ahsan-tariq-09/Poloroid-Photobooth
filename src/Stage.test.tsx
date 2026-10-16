@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clone,
   WORKSPACE,
+  cutLayer,
   initialComposition,
   type Asset,
   type Composition,
@@ -182,15 +183,24 @@ describe("preview lifecycle and rendering cost", () => {
   });
 });
 
-function pointer(type: string, x: number, y: number, target: Element) {
+function pointer(
+  type: string,
+  x: number,
+  y: number,
+  target: Element,
+  pointerType = "mouse",
+) {
   const event = new MouseEvent(type, {
     bubbles: true,
+    cancelable: true,
     button: 0,
     clientX: x - WORKSPACE.x,
     clientY: y - WORKSPACE.y,
   });
   Object.defineProperty(event, "pointerId", { value: 1 });
+  Object.defineProperty(event, "pointerType", { value: pointerType });
   target.dispatchEvent(event);
+  return event;
 }
 async function pointerSetup(c: Composition, tool: Tool = "move") {
   Object.defineProperty(SVGSVGElement.prototype, "getScreenCTM", {
@@ -218,6 +228,66 @@ async function pointerSetup(c: Composition, tool: Tool = "move") {
   return host.querySelector("svg")!;
 }
 describe("real pointer gestures", () => {
+  it("prevents native text dragging while making consecutive cuts without changing tools", async () => {
+    let composition = initialComposition();
+    const svg = await pointerSetup(composition, "cut");
+    const focus = vi.spyOn(svg, "focus");
+    await render(composition, false, asset, "cut", "freehand");
+    const strokes = [
+      [
+        [75, 180],
+        [525, 350],
+      ],
+      [
+        [75, 450],
+        [525, 250],
+      ],
+      [
+        [240, 70],
+        [240, 520],
+      ],
+    ];
+    for (const [index, [start, end]] of strokes.entries()) {
+      await act(async () => {
+        const down = pointer("pointerdown", start[0], start[1], svg);
+        expect(down.defaultPrevented).toBe(true);
+      });
+      expect(document.activeElement).toBe(svg);
+      expect(focus).toHaveBeenLastCalledWith({ preventScroll: true });
+      await act(async () => pointer("pointermove", end[0], end[1], svg));
+      await act(async () => pointer("pointerup", end[0], end[1], svg));
+      expect(onUp).toHaveBeenCalledTimes(index + 1);
+      const [id, points] = onUp.mock.calls.at(-1)!;
+      composition = cutLayer(composition, id, points, "freehand");
+      expect(composition.layers).toHaveLength(index + 2);
+      await render(composition, false, asset, "cut", "freehand");
+    }
+    expect(onMove).not.toHaveBeenCalled();
+  });
+  it("blocks native drag-start from an SVG label so it cannot cancel the next cut", async () => {
+    await pointerSetup(initialComposition(), "cut");
+    const event = new MouseEvent("dragstart", {
+      bubbles: true,
+      cancelable: true,
+    });
+    await act(async () =>
+      host.querySelector(".target-label")!.dispatchEvent(event),
+    );
+    expect(event.defaultPrevented).toBe(true);
+    expect(onUp).not.toHaveBeenCalled();
+  });
+  it("keeps touch gestures available to the long-press menu and still completes a cut", async () => {
+    const c = initialComposition(),
+      svg = await pointerSetup(c, "cut");
+    await act(async () => {
+      expect(
+        pointer("pointerdown", 75, 180, svg, "touch").defaultPrevented,
+      ).toBe(false);
+    });
+    await act(async () => pointer("pointermove", 525, 350, svg, "touch"));
+    await act(async () => pointer("pointerup", 525, 350, svg, "touch"));
+    expect(onUp).toHaveBeenCalledOnce();
+  });
   it("keeps a closed scissor path and its release endpoint, without triggering resize handles", async () => {
     const c = initialComposition(),
       svg = await pointerSetup(c, "cut");

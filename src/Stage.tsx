@@ -358,6 +358,7 @@ export default function Stage({
           WORKSPACE.height
         }
         aria-label="Polaroid editor. Select pieces, drag handles to resize, or draw a cut."
+        onDragStart={(e) => e.preventDefault()}
         onContextMenu={(e) => {
           finish(true);
           const p = point(e);
@@ -389,8 +390,11 @@ export default function Stage({
             onRepeat(stored.id);
             return;
           }
+          // Stop mouse text-dragging without suppressing the touch/pen menu timer.
+          if (e.pointerType !== "touch" && e.pointerType !== "pen")
+            e.preventDefault();
           e.currentTarget.setPointerCapture(e.pointerId);
-          e.currentTarget.focus();
+          e.currentTarget.focus({ preventScroll: true });
           // Handle coordinates are attached to the stored target; moving uses the visual pose.
           const mapped = grid
             ? p

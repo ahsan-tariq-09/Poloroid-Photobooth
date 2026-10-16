@@ -94,7 +94,7 @@ WebGPU runs the actual effect shader in `src/effects.wgsl`. The Canvas implement
 
 ## Validation
 
-The current studio passes 67 automated tests, TypeScript checks, production and Docker builds. The dependency audit reports no known vulnerabilities. See [validation coverage and device limitations](docs/VALIDATION.md) and the [desktop interface verification view](docs/studio-desktop.png).
+The current studio passes 70 automated tests, TypeScript checks, production and Docker builds. The dependency audit reports no known vulnerabilities. See [validation coverage and device limitations](docs/VALIDATION.md) and the [desktop interface verification view](docs/studio-desktop.png).
 
 ## References and credits
 
