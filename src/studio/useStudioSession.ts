@@ -3,7 +3,11 @@ import { importAsset } from "../imports";
 import {
   addDecoration,
   clone,
-  duplicateLayer,
+  pasteLayer,
+  orderLayer,
+  alignLayer,
+  type LayerOrder,
+  type Alignment,
   initialComposition,
   cutLayer,
   repeatLayer,
@@ -56,7 +60,8 @@ export function useStudioSession() {
   const [cutAngle, setCutAngle] = useState(0);
   const [tool, setTool] = useState<Tool>("move"),
     [selected, setSelected] = useState<string | null>(null),
-    [cutMode, setCutMode] = useState<"straight" | "freehand">("straight");
+    [cutMode, setCutMode] = useState<"straight" | "freehand">("freehand");
+  const [clipboard, setClipboard] = useState<Layer | null>(null);
   const [category, setCategory] = useState<Category>("arrange");
   const [hasSession, setHasSession] = useState(false);
   const [busy, setBusy] = useState(false),
@@ -114,6 +119,7 @@ export function useStudioSession() {
     });
   }, [assets]);
   const resetSession = (nextAssets: Assets, next: Composition) => {
+    setClipboard(null);
     assetsRef.current = nextAssets;
     setAssets(nextAssets);
     baseline.current = clone(next);
@@ -245,23 +251,23 @@ export function useStudioSession() {
     Object.assign(target, values);
     continuous ? preview(next) : commit(next);
   };
-  const reorder = (direction: number) => {
-    const next = clone(composition),
-      index = next.layers.findIndex((l) => l.id === selected);
-    const band = next.layers.filter(
-      (l) => (l.kind === "photo") === (layer?.kind === "photo"),
-    );
-    const neighbor = band[band.findIndex((l) => l.id === selected) + direction];
-    const destination = neighbor
-      ? next.layers.findIndex((l) => l.id === neighbor.id)
-      : -1;
-    if (index < 0 || destination < 0 || destination >= next.layers.length)
-      return;
-    [next.layers[index], next.layers[destination]] = [
-      next.layers[destination],
-      next.layers[index],
-    ];
-    commit(next);
+  const reorder = (action: LayerOrder) => {
+    finish();
+    setGrid(null);
+    setTool("move");
+    if (selected) commit(orderLayer(compositionRef.current, selected, action));
+  };
+  const align = (alignment: Alignment) => {
+    finish();
+    setGrid(null);
+    setTool("move");
+    const current = compositionRef.current;
+    commit({
+      ...current,
+      layers: current.layers.map((l) =>
+        l.id === selected ? alignLayer(l, alignment) : l,
+      ),
+    });
   };
   const remove = () => {
     if (!selected) return;
@@ -273,13 +279,23 @@ export function useStudioSession() {
     });
     setSelected(null);
   };
-  const duplicate = () => {
-    if (!selected) return;
+  const copy = () => {
+    finish();
+    const piece = compositionRef.current.layers.find((l) => l.id === selected);
+    if (piece) {
+      setClipboard(clone(piece));
+      toast("Piece copied. Use Paste to add it.");
+    }
+  };
+  const paste = () => {
+    if (!clipboard) return;
+    finish();
     setGrid(null);
     setTool("move");
-    const next = duplicateLayer(composition, selected);
+    const next = pasteLayer(compositionRef.current, clipboard);
     commit(next);
     setSelected(next.layers.at(-1)!.id);
+    setCategory(clipboard.kind === "photo" ? "arrange" : "decorate");
   };
   const undo = () => {
     setGrid(null);
@@ -294,6 +310,7 @@ export function useStudioSession() {
     dispatch({ type: "redo" });
   };
   const cutPhoto = (id: string, points: Point[], mode = cutMode) => {
+    setError("");
     try {
       const next = cutLayer(compositionRef.current, id, points, mode);
       const oldIds = new Set(compositionRef.current.layers.map((l) => l.id));
@@ -433,7 +450,10 @@ export function useStudioSession() {
     updateLayer,
     reorder,
     remove,
-    duplicate,
+    copy,
+    paste,
+    clipboard,
+    align,
     undo,
     redo,
     reset,

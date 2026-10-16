@@ -8,7 +8,6 @@ import {
   Maximize2,
   MousePointer2,
   Scissors,
-  Trash2,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { clone, cropLayer, DEFAULT_CROP, type Tool } from "../model";
@@ -25,7 +24,7 @@ const tools: { id: Tool; label: string; icon: typeof Copy }[] = [
 const toolHelp: Partial<Record<Tool, string>> = {
   move: "Select a piece, then drag to move it. Use its corners to resize.",
   crop: "Drag a rectangle or the corner handles to trim the selected photo.",
-  cut: "Draw from one edge of the photo to another. Release to cut.",
+  cut: "Draw a scissor path from edge to edge, or return to the starting circle to cut out a shape. Release to cut.",
   repeat:
     "Make a 3×3 grid. Adjust the box, then switch tools to edit each tile.",
 };
@@ -38,13 +37,13 @@ function ToolSettings({ s }: { s: Studio }) {
       {tool === "cut" && (
         <>
           <div className="segmented" aria-label="Cut mode">
-            {(["straight", "freehand"] as const).map((mode) => (
+            {(["freehand", "straight"] as const).map((mode) => (
               <button
                 key={mode}
                 aria-pressed={s.cutMode === mode}
                 onClick={() => s.setCutMode(mode)}
               >
-                {mode === "straight" ? "Straight" : "Freehand"}
+                {mode === "straight" ? "Straight line" : "Scissors"}
               </button>
             ))}
           </div>
@@ -311,7 +310,10 @@ function Pieces({ s }: { s: Studio }) {
         Photos and pieces <span>{s.composition.layers.length}</span>
       </summary>
       <div className="layer-list">
-        {[...s.composition.layers].reverse().map((l) => (
+        {[
+          ...s.composition.layers.filter((l) => l.kind !== "photo").reverse(),
+          ...s.composition.layers.filter((l) => l.kind === "photo").reverse(),
+        ].map((l) => (
           <button
             className="layer-row"
             aria-pressed={s.selected === l.id}
@@ -331,36 +333,6 @@ function Pieces({ s }: { s: Studio }) {
             <span>{l.name}</span>
           </button>
         ))}
-      </div>
-      <div className="layer-actions">
-        <button
-          disabled={!s.layer}
-          aria-label="Bring forward"
-          onClick={() => s.reorder(1)}
-        >
-          <ArrowUp size={15} /> Forward
-        </button>
-        <button
-          disabled={!s.layer}
-          aria-label="Send backward"
-          onClick={() => s.reorder(-1)}
-        >
-          <ArrowDown size={15} /> Backward
-        </button>
-        <button
-          disabled={!s.layer}
-          aria-label="Duplicate selected piece"
-          onClick={s.duplicate}
-        >
-          <Copy size={15} /> Duplicate
-        </button>
-        <button
-          disabled={!s.layer}
-          aria-label="Delete selected piece"
-          onClick={s.remove}
-        >
-          <Trash2 size={15} /> Delete
-        </button>
       </div>
     </details>
   );

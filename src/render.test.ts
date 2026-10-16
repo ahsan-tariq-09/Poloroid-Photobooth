@@ -51,6 +51,52 @@ const at = (output: HTMLCanvasElement, x: number, y: number) => [
   ...output.getContext("2d")!.getImageData(x, y, 1, 1).data,
 ];
 describe("real Polaroid rendering and export", () => {
+  it("keeps closed scissor holes and outside-frame cutouts identical in PNG and reopened SVG", async () => {
+    const asset = await makeAsset();
+    let c = initialComposition();
+    c = cutLayer(
+      c,
+      c.layers[0].id,
+      [
+        [90, 90],
+        [330, 110],
+        [280, 330],
+        [90, 90],
+      ],
+      "freehand",
+    );
+    const cutout = c.layers.find((l) => l.mask![0].length === 1)!;
+    cutout.x -= 210;
+    cutout.rotation = -19;
+    const region = bounds(c),
+      out = await renderComposition(
+        canvas(1, 1),
+        { sample: asset },
+        c,
+        region,
+        2,
+      );
+    const svg = await serializeSvg({ sample: asset }, c);
+    const image = await loadImage(
+      new Resvg(svg, { fitTo: { mode: "width", value: out.width } })
+        .render()
+        .asPng(),
+    );
+    const reopened = createCanvas(out.width, out.height);
+    reopened.getContext("2d").drawImage(image, 0, 0);
+    const actual = reopened
+      .getContext("2d")
+      .getImageData(0, 0, out.width, out.height).data;
+    const expected = out
+      .getContext("2d")!
+      .getImageData(0, 0, out.width, out.height).data;
+    expect(actual.length).toBe(expected.length);
+    expect(
+      expected.reduce((sum, v, i) => sum + Math.abs(v - actual[i]), 0) /
+        expected.length,
+    ).toBeLessThan(2);
+    expect(region.x).toBeLessThan(FRAME.x);
+  });
   it("renders only the supplied caption using the interface font stack", () => {
     const fillText = vi.fn();
     const ctx = { fillText } as unknown as CanvasRenderingContext2D;
@@ -238,7 +284,12 @@ describe("real Polaroid rendering and export", () => {
       region = bounds(c);
     const out = await renderComposition(canvas(1, 1), assets, c, region, 3);
     // A photo positioned under the left border cannot cover the locked frame.
-    expect(at(out, 15, 150)).toEqual([255, 249, 233, 255]);
+    expect(at(out, (50 - region.x) * 3, (150 - region.y) * 3)).toEqual([
+      255, 249, 233, 255,
+    ]);
+    expect(at(out, (25 - region.x) * 3, (150 - region.y) * 3)).toEqual([
+      40, 108, 121, 255,
+    ]);
     const svg = await serializeSvg(assets, c);
     const reopened = new Resvg(svg, {
       fitTo: { mode: "width", value: out.width },

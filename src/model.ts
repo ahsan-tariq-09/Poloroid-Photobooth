@@ -1,7 +1,7 @@
 import { difference, intersection } from "polyclip-ts";
 export const FRAME = { x: 40, y: 35, width: 520, height: (520 * 107) / 88 };
 export const PHOTO = { x: 70, y: 65, size: 460 };
-export const WORKSPACE = { x: -35, y: 0, width: 670, height: 710 };
+export const WORKSPACE = { x: -130, y: -65, width: 860, height: 830 };
 export type Tool = "move" | "crop" | "cut" | "repeat" | "tape" | "paper";
 export type Rect = { x: number; y: number; width: number; height: number };
 export type Point = [number, number];
@@ -158,7 +158,12 @@ export function hitTest(
     .find(
       (l) =>
         (!photosOnly || l.kind === "photo") &&
-        (l.kind !== "photo" || inOpening(x, y)) &&
+        (l.kind !== "photo" ||
+          inOpening(x, y) ||
+          x < FRAME.x ||
+          x > FRAME.x + FRAME.width ||
+          y < FRAME.y ||
+          y > FRAME.y + FRAME.height) &&
         contains(l, x, y),
     );
 }
@@ -167,7 +172,7 @@ export function bounds(composition: Composition): Rect {
     top = FRAME.y,
     right = FRAME.x + FRAME.width,
     bottom = FRAME.y + FRAME.height;
-  for (const l of composition.layers.filter((l) => l.kind !== "photo")) {
+  for (const l of composition.layers) {
     const a = (l.rotation * Math.PI) / 180,
       hw =
         (Math.abs(l.width * Math.cos(a)) + Math.abs(l.height * Math.sin(a))) /
@@ -300,6 +305,11 @@ export function cutLayer(
   const w = layer.width,
     h = layer.height;
   let path = input.map((p) => [p[0], p[1]] as Point);
+  const closed =
+    mode === "freehand" &&
+    path.length >= 4 &&
+    Math.hypot(path[0][0] - path.at(-1)![0], path[0][1] - path.at(-1)![1]) <=
+      16;
   if (mode === "straight") {
     const a = path[0],
       b = path.at(-1)!,
@@ -339,71 +349,80 @@ export function cutLayer(
     }
     sampled.push(path.at(-1)!);
     path = sampled;
-    const extend = (point: Point, neighbor: Point): Point => {
-      const edge = edgePoint(point, w, h);
-      if (Math.hypot(edge[0] - point[0], edge[1] - point[1]) <= 16) return edge;
-      const visible = worldPoint(layer, ...point);
-      const nearCutEdge = shape(layer).some((poly) =>
-        poly.some((ring) =>
-          ring.some((a, i) => {
-            const b = ring[(i + 1) % ring.length],
-              dx = b[0] - a[0],
-              dy = b[1] - a[1];
-            const t = Math.max(
-              0,
-              Math.min(
-                1,
-                ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) /
-                  (dx * dx + dy * dy || 1),
-              ),
-            );
-            return (
-              Math.hypot(point[0] - a[0] - t * dx, point[1] - a[1] - t * dy) <=
-              16
-            );
-          }),
-        ),
-      );
-      const nearOpening =
-        inOpening(visible.x, visible.y) &&
-        Math.min(
-          visible.x - PHOTO.x,
-          PHOTO.x + PHOTO.size - visible.x,
-          visible.y - PHOTO.y,
-          PHOTO.y + PHOTO.size - visible.y,
-        ) <= 16;
-      if (!nearOpening && !nearCutEdge) return point;
-      const dx = point[0] - neighbor[0],
-        dy = point[1] - neighbor[1];
-      const hits: { t: number; p: Point }[] = [];
-      for (const [axis, value] of [
-        [0, 0],
-        [0, w],
-        [1, 0],
-        [1, h],
-      ]) {
-        const delta = axis ? dy : dx;
-        if (Math.abs(delta) < 1e-8) continue;
-        const t = (value - point[axis]) / delta;
-        const p: Point = [point[0] + dx * t, point[1] + dy * t];
-        p[axis] = value;
-        if (t >= 0 && p[0] >= 0 && p[0] <= w && p[1] >= 0 && p[1] <= h)
-          hits.push({ t, p });
-      }
-      return hits.sort((a, b) => a.t - b.t)[0]?.p || point;
-    };
-    const first = extend(path[0], path[1]),
-      last = extend(path.at(-1)!, path.at(-2)!);
-    if (
-      Math.hypot(...edgePoint(first, w, h).map((n, i) => n - first[i])) >
-        0.001 ||
-      Math.hypot(...edgePoint(last, w, h).map((n, i) => n - last[i])) > 0.001
-    )
-      throw new Error("Freehand cuts must start and finish at a photo edge.");
-    path[0] = first;
-    path[path.length - 1] = last;
-    if (path.slice(1, -1).some(([x, y]) => x < 0 || x > w || y < 0 || y > h))
-      throw new Error("Keep the stroke inside the photo between its edges.");
+    if (closed) {
+      path[path.length - 1] = [...path[0]];
+    } else {
+      const extend = (point: Point, neighbor: Point): Point => {
+        const edge = edgePoint(point, w, h);
+        if (Math.hypot(edge[0] - point[0], edge[1] - point[1]) <= 16)
+          return edge;
+        const visible = worldPoint(layer, ...point);
+        const nearCutEdge = shape(layer).some((poly) =>
+          poly.some((ring) =>
+            ring.some((a, i) => {
+              const b = ring[(i + 1) % ring.length],
+                dx = b[0] - a[0],
+                dy = b[1] - a[1];
+              const t = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) /
+                    (dx * dx + dy * dy || 1),
+                ),
+              );
+              return (
+                Math.hypot(
+                  point[0] - a[0] - t * dx,
+                  point[1] - a[1] - t * dy,
+                ) <= 16
+              );
+            }),
+          ),
+        );
+        const nearOpening =
+          inOpening(visible.x, visible.y) &&
+          Math.min(
+            visible.x - PHOTO.x,
+            PHOTO.x + PHOTO.size - visible.x,
+            visible.y - PHOTO.y,
+            PHOTO.y + PHOTO.size - visible.y,
+          ) <= 16;
+        if (!nearOpening && !nearCutEdge) return point;
+        const dx = point[0] - neighbor[0],
+          dy = point[1] - neighbor[1];
+        const hits: { t: number; p: Point }[] = [];
+        for (const [axis, value] of [
+          [0, 0],
+          [0, w],
+          [1, 0],
+          [1, h],
+        ]) {
+          const delta = axis ? dy : dx;
+          if (Math.abs(delta) < 1e-8) continue;
+          const t = (value - point[axis]) / delta;
+          const p: Point = [point[0] + dx * t, point[1] + dy * t];
+          p[axis] = value;
+          if (t >= 0 && p[0] >= 0 && p[0] <= w && p[1] >= 0 && p[1] <= h)
+            hits.push({ t, p });
+        }
+        return hits.sort((a, b) => a.t - b.t)[0]?.p || point;
+      };
+      const first = extend(path[0], path[1]),
+        last = extend(path.at(-1)!, path.at(-2)!);
+      if (
+        Math.hypot(...edgePoint(first, w, h).map((n, i) => n - first[i])) >
+          0.001 ||
+        Math.hypot(...edgePoint(last, w, h).map((n, i) => n - last[i])) > 0.001
+      )
+        throw new Error(
+          "Draw from edge to edge, or close a shape by returning to your starting point.",
+        );
+      path[0] = first;
+      path[path.length - 1] = last;
+      if (path.slice(1, -1).some(([x, y]) => x < 0 || x > w || y < 0 || y > h))
+        throw new Error("Keep the stroke inside the photo between its edges.");
+    }
   }
   for (let i = 0; i < path.length - 1; i++)
     for (let j = i + 2; j < path.length - 1; j++)
@@ -423,7 +442,7 @@ export function cutLayer(
     .filter((c) => c.t < (start <= end ? start + length : start))
     .sort((a, b) => a.t - b.t)
     .map((c) => c.p);
-  const ring = [...path, ...closure, path[0]],
+  const ring = closed ? path : [...path, ...closure, path[0]],
     geometry = shape(layer);
   const sides = [intersection(geometry, [ring]), difference(geometry, [ring])];
   if (
@@ -500,13 +519,11 @@ export function transformGrid(
     };
   });
 }
-export function duplicateLayer(
+export function pasteLayer(
   composition: Composition,
-  id: string,
+  layer: Layer,
 ): Composition {
-  const next = clone(composition),
-    layer = next.layers.find((l) => l.id === id);
-  if (!layer) return composition;
+  const next = clone(composition);
   next.layers.push({
     ...clone(layer),
     id: crypto.randomUUID(),
@@ -515,6 +532,71 @@ export function duplicateLayer(
     name: layer.name + " copy",
   });
   return next;
+}
+export type LayerOrder = "forward" | "front" | "backward" | "back";
+export function orderLayer(
+  composition: Composition,
+  id: string,
+  action: LayerOrder,
+) {
+  const layer = composition.layers.find((l) => l.id === id);
+  if (!layer) return composition;
+  const band = composition.layers.filter(
+    (l) => (l.kind === "photo") === (layer.kind === "photo"),
+  );
+  const index = band.findIndex((l) => l.id === id);
+  const destination =
+    action === "front"
+      ? band.length - 1
+      : action === "back"
+        ? 0
+        : Math.max(
+            0,
+            Math.min(band.length - 1, index + (action === "forward" ? 1 : -1)),
+          );
+  if (index === destination) return composition;
+  band.splice(index, 1);
+  band.splice(destination, 0, layer);
+  let cursor = 0;
+  return {
+    ...composition,
+    layers: composition.layers.map((l) =>
+      (l.kind === "photo") === (layer.kind === "photo") ? band[cursor++] : l,
+    ),
+  };
+}
+export type Alignment =
+  | "left"
+  | "center"
+  | "right"
+  | "top"
+  | "middle"
+  | "bottom";
+export function alignLayer(layer: Layer, alignment: Alignment): Layer {
+  const points = shape(layer)
+    .flat(2)
+    .map(([x, y]) => worldPoint(layer, x, y));
+  const left = Math.min(...points.map((p) => p.x)),
+    right = Math.max(...points.map((p) => p.x));
+  const top = Math.min(...points.map((p) => p.y)),
+    bottom = Math.max(...points.map((p) => p.y));
+  const dx =
+    alignment === "left"
+      ? FRAME.x - left
+      : alignment === "right"
+        ? FRAME.x + FRAME.width - right
+        : alignment === "center"
+          ? FRAME.x + FRAME.width / 2 - (left + right) / 2
+          : 0;
+  const dy =
+    alignment === "top"
+      ? FRAME.y - top
+      : alignment === "bottom"
+        ? FRAME.y + FRAME.height - bottom
+        : alignment === "middle"
+          ? FRAME.y + FRAME.height / 2 - (top + bottom) / 2
+          : 0;
+  return { ...layer, x: layer.x + dx, y: layer.y + dy };
 }
 export function addDecoration(
   composition: Composition,

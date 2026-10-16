@@ -1,7 +1,9 @@
 import { ArrowRight, Redo2, RotateCcw, Undo2 } from "lucide-react";
 import { useNavigate } from "react-router";
+import { useState } from "react";
 import Stage from "../Stage";
 import EditorControls from "./EditorControls";
+import PieceMenu, { PieceContextMenu } from "./PieceMenu";
 import type { Studio } from "./useStudioSession";
 
 export default function EditScreen({
@@ -14,6 +16,7 @@ export default function EditScreen({
   enabled: boolean;
 }) {
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <main className="edit-screen">
       <div className="page-heading">
@@ -54,30 +57,37 @@ export default function EditScreen({
         </div>
       </div>
       <div className="edit-layout">
-        <div className="workspace">
-          <Stage
-            assets={s.assets}
-            composition={s.composition}
-            selected={s.selected}
-            tool={s.tool}
-            cutMode={s.cutMode}
-            grid={s.grid?.box}
-            enabled={enabled}
-            onSelect={s.select}
-            onChange={(next, final) =>
-              final ? s.commit(next) : s.preview(next)
-            }
-            onRepeat={s.repeatPhoto}
-            onCut={s.cutPhoto}
-            onGrid={s.adjustGrid}
-            onError={s.reportError}
-          />
-          {s.busy && (
-            <p className="preparing" role="status">
-              Preparing photos…
-            </p>
-          )}
-        </div>
+        <PieceContextMenu studio={s} onOpenChange={setMenuOpen}>
+          <div className="workspace">
+            <div className="canvas-toolbar">
+              <span>{s.layer?.name || "Select a piece"}</span>
+              <PieceMenu studio={s} onOpenChange={setMenuOpen} />
+            </div>
+            <Stage
+              assets={s.assets}
+              composition={s.composition}
+              selected={s.selected}
+              tool={s.tool}
+              cutMode={s.cutMode}
+              grid={s.grid?.box}
+              enabled={enabled}
+              menuOpen={menuOpen}
+              onSelect={s.select}
+              onChange={(next, final) =>
+                final ? s.commit(next) : s.preview(next)
+              }
+              onRepeat={s.repeatPhoto}
+              onCut={s.cutPhoto}
+              onGrid={s.adjustGrid}
+              onError={s.reportError}
+            />
+            {s.busy && (
+              <p className="preparing" role="status">
+                Preparing photos…
+              </p>
+            )}
+          </div>
+        </PieceContextMenu>
         <EditorControls studio={s} onUpload={onUpload} enabled={enabled} />
       </div>
     </main>

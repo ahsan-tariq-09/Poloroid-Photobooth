@@ -40,14 +40,20 @@ For a manual preview, link the checkout to that project, verify the project and 
 ## Use the studio
 
 1. **Start (`/`)**: choose or drop JPG/JPEG, PNG, HEIC/HEIF or self-contained SVG files, use the camera, or try Classic, Cut and taped, or 3×3 grid. Examples reuse the coastal photo and render their thumbnails from the same deterministic composition that opens in Edit.
-2. **Edit (`/edit`)**: the fixed, upright Polaroid stays above the photo layers. Arrange contains Add photos, Move, Crop, Cut, Repeat and Zoom. Decorate adds tape/paper and exposes color, rotation and size. Look contains film/copier settings, frame color and caption. Photos and pieces expands layer selection, ordering, duplication and deletion; More options expands precise geometry and nudging.
+2. **Edit (`/edit`)**: the fixed, upright Polaroid stays above the photo layers. Arrange contains Add photos, Move, Crop, Cut, Repeat and Zoom. Decorate adds tape/paper and exposes color, rotation and size. Look contains film/copier settings, frame color and caption. Photos and pieces expands layer selection; the Piece menu provides copying, pasting, deletion, ordering and page alignment; More options expands precise geometry and nudging.
 3. **Finish (`/finish`)**: download PNG, JPEG, genuine HEIC or self-contained SVG, print, or download the separate STL frame models. Every artwork includes the complete frame and any user-entered caption, with no editor controls or decorative slogans.
 
 The initial upload opens a new composition with an empty caption. Additional photos in Edit join the existing composition independently. Imports decode sequentially and successful files survive mixed-batch failures. Returning to Start offers Resume editing; starting a new upload or example asks before replacing the existing work. Failed replacement imports leave that work intact.
 
 Navigation, category selection and temporary animations do not enter composition history. Back/Forward and Back to editing preserve assets, selection and Undo/Redo. Refresh clears the in-memory session; direct Edit/Finish visits without a session return to Start with an explanation. No account or storage is added.
 
-Crop trims through a drawn rectangle or corner handles without stretching the surviving pixels. Cut accepts arbitrary straight lines and non-self-crossing edge-to-edge freehand strokes; Cut by angle provides a numeric alternative. Invalid strokes leave the composition unchanged. Repeat creates exactly nine full copies in a fitted 3×3 grid; its box adjusts the tiles together until the tool or category changes. Duplicate makes a separate single copy.
+Crop trims through a drawn rectangle or corner handles without stretching the surviving pixels. Cut defaults to Scissors: draw a non-self-crossing edge-to-edge path, or return to the starting circle to cut out a closed shape. Each connected piece can move independently; the surrounding piece retains its hole. Straight line and Cut by angle remain available. Invalid strokes leave the composition unchanged. Repeat creates exactly nine full copies in a fitted 3×3 grid; its box adjusts the tiles together until the tool or category changes. Use Copy and Paste in the Piece menu to copy a piece within the current session. Copy does not add an Undo step; each paste does.
+
+The Piece menu is available above the canvas, on right-click, and by long-press. Its Layer submenu has Bring forward, Bring to front, Send backward and Send to back, within the photo or decoration band. The frame always stays above photos and below tape/paper. Align to page uses the outer Polaroid frame and the selected piece's rotated outline: Left, Center, Right, Top, Middle and Bottom. Clipboard contents stay in memory and clear when starting a new session.
+
+Photos moved outside the frame stay visible behind it. The workspace has fixed margins and does not resize while moving pieces. Finished previews, all downloads and print output include photo overflow; the frame itself still prints at 88 × 107 mm.
+
+Accessible menus use [Radix Primitives](https://www.radix-ui.com/primitives/docs/components/context-menu). Cutting and holes use the existing [polyclip-ts](https://github.com/luizbarboza/polyclip-ts) engine, shared by hit testing, Canvas and SVG geometry. The editor and menu code load only when entering Edit.
 
 Gestures commit on release. Undo/Redo reverses each completed action. Reset restores the initial composition (including an example's arrangement) plus the original arrangement of photos subsequently added. Individual layers can rotate; the outer frame stays upright. All controls retain native Tab, button and form keyboard behavior, and dialogs support Escape dismissal.
 
@@ -88,7 +94,7 @@ WebGPU runs the actual effect shader in `src/effects.wgsl`. The Canvas implement
 
 ## Validation
 
-The photo-first upgrade passes 59 automated tests, TypeScript checks, production and Docker builds. The dependency audit reports no known vulnerabilities. See [validation coverage and device limitations](docs/VALIDATION.md) and the [desktop interface verification view](docs/studio-desktop.png).
+The current studio passes 67 automated tests, TypeScript checks, production and Docker builds. The dependency audit reports no known vulnerabilities. See [validation coverage and device limitations](docs/VALIDATION.md) and the [desktop interface verification view](docs/studio-desktop.png).
 
 ## References and credits
 

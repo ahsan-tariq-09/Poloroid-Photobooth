@@ -64,10 +64,15 @@ import { examples } from "./studio/examples";
 
 let root: Root, host: HTMLDivElement;
 
-const flush = () =>
-  act(async () => {
+const flush = async () => {
+  await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
+  for (let i = 0; host?.textContent?.includes("Opening editor…") && i < 30; i++)
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+};
 
 async function click(selector: string) {
   const button = host.querySelector<HTMLButtonElement>(selector);
@@ -79,6 +84,34 @@ async function click(selector: string) {
   await flush();
 }
 
+async function menuAction(label: string, submenu?: string) {
+  const trigger = host.querySelector<HTMLButtonElement>(
+    '[aria-label="Piece menu"]',
+  )!;
+  await act(async () =>
+    trigger.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    ),
+  );
+  await flush();
+  if (submenu) {
+    const trigger = [
+      ...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+    ].find((el) => el.textContent === submenu)!;
+    await act(async () =>
+      trigger.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+      ),
+    );
+    await flush();
+  }
+  const item = [
+    ...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+  ].find((el) => el.textContent === label);
+  expect(item).toBeDefined();
+  await act(async () => item!.click());
+  await flush();
+}
 const comp = () => mocks.current!.composition;
 
 async function chooseFiles(names: string[]) {
@@ -186,6 +219,28 @@ async function startClassic() {
 }
 describe("existing editor regression", () => {
   beforeEach(startClassic);
+  it("copies without history, pastes after deletion, and undoes menu alignment and ordering one action at a time", async () => {
+    const original = structuredClone(comp());
+    await menuAction("Copy");
+    expect(
+      host.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!.disabled,
+    ).toBe(true);
+    await menuAction("Paste");
+    const pasted = structuredClone(comp());
+    await menuAction("Left", "Align to page");
+    expect(comp().layers.at(-1)!.x).toBe(40);
+    await click('[aria-label="Undo"]');
+    expect(comp()).toEqual(pasted);
+    await menuAction("Send to back", "Layer");
+    expect(comp().layers[0].id).toBe(pasted.layers[1].id);
+    await click('[aria-label="Undo"]');
+    expect(comp()).toEqual(pasted);
+    await menuAction("Delete");
+    expect(comp()).toEqual(original);
+    await menuAction("Paste");
+    expect(comp().layers).toHaveLength(2);
+    expect(comp().layers[1].assetId).toBe(original.layers[0].assetId);
+  });
   it("keeps a new photo fragment selected when tape sits above the photo", async () => {
     await button("Decorate");
     await click('[title="Tape"]');
@@ -212,7 +267,7 @@ describe("existing editor regression", () => {
     expect(comp().layers).toHaveLength(4);
   });
 
-  it("preserves cut, decoration, duplication, layer controls, undo/redo and reset", async () => {
+  it("preserves cut, decoration, copy/paste, layer controls, undo/redo and reset", async () => {
     expect(comp().layers).toHaveLength(1);
 
     await click('[aria-label="Select photograph"]');
@@ -233,7 +288,8 @@ describe("existing editor regression", () => {
 
     expect(comp().layers).toHaveLength(4);
 
-    await click('[aria-label="Duplicate selected piece"]');
+    await menuAction("Copy");
+    await menuAction("Paste");
 
     expect(comp().layers).toHaveLength(5);
 
@@ -243,7 +299,7 @@ describe("existing editor regression", () => {
 
     expect(comp().layers.at(-1)!.x).toBe(before + 5);
 
-    await click('[aria-label="Delete selected piece"]');
+    await menuAction("Delete");
 
     expect(comp().layers).toHaveLength(4);
 
@@ -370,7 +426,8 @@ describe("existing editor regression", () => {
     expect(host.querySelector('[aria-label="Grid width"]')).not.toBeNull();
 
     await click('[title="Move"]');
-    await click('[aria-label="Duplicate selected piece"]');
+    await menuAction("Copy");
+    await menuAction("Paste");
     expect(comp().layers).toHaveLength(10);
 
     await click('[aria-label="Undo"]');
@@ -447,7 +504,8 @@ describe("photo-first navigation and sessions", () => {
       await click(`[aria-label="Try ${example.title} example"]`);
       expect(window.location.pathname).toBe("/edit");
       expect(comp()).toEqual(example.composition);
-      await click('[aria-label="Duplicate selected piece"]');
+      await menuAction("Copy");
+      await menuAction("Paste");
       expect(comp().layers.length).toBe(example.composition.layers.length + 1);
       await button("Undo");
       expect(comp()).toEqual(example.composition);

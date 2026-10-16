@@ -2,7 +2,7 @@
 
 ## Automated checks
 
-`pnpm test` covers layer cutting (including rotated pieces), source coverage, overflow bounds, duplication and hit testing, centered crop geometry, gesture history, deterministic fallback effects, and file-format recognition without MIME information.
+`pnpm test` covers layer cutting (including rotated pieces), source coverage, overflow bounds, copy/paste and hit testing, centered crop geometry, gesture history, deterministic fallback effects, and file-format recognition without MIME information.
 
 SVG tests cover transparency, gradients, internal clipping, quoted internal references, active-content sanitization, external dependencies, malformed XML, dimensions, and Unicode. Native Canvas and resvg tests render a finished Polaroid, reopen its SVG without network access, and compare pixels with PNG output using effects, tape, overlapping fragments, and overflow. A separate check verifies that untouched uploaded SVG artwork remains embedded as vectors.
 
@@ -12,9 +12,9 @@ TypeScript and the production build pass. The initial application bundle is sepa
 
 ## Multi-photo editing and output regression coverage
 
-The current suite covers fixed frame/aperture geometry, photo-only clipping, band-aware hit testing, source-preserving rotated crops, arbitrary-angle and freehand cuts, repeated straight/freehand cuts on irregular fragment edges, invalid/self-crossing strokes, 3×3 fitting, grid transforms, and independent source references.
+The current suite covers fixed frame/aperture geometry, per-fragment clipping and photo overflow behind the frame, band-aware hit testing, source-preserving rotated crops, arbitrary-angle and freehand cuts, repeated straight/freehand cuts on irregular fragment edges, invalid/self-crossing strokes, 3×3 fitting, grid transforms, and independent source references.
 
-Actual React pointer events exercise corner resizing, drawn cuts, crop rectangles and tape rotation. Component tests cover sequential slow HEIC uploads followed by SVG, mixed batches with decoding failures, source retention across Undo/Redo, Reset, single duplication versus Repeat, camera permission/cleanup, all format selections, printing and unchanged STL links.
+Actual React pointer events exercise corner resizing, drawn cuts, crop rectangles and tape rotation. Component tests cover sequential slow HEIC uploads followed by SVG, mixed batches with decoding failures, source retention across Undo/Redo, Reset, copy/paste versus Repeat, camera permission/cleanup, all format selections, printing and unchanged STL links.
 
 Native Canvas/resvg tests reopen complete self-contained exports with multiple sources, curved masks, rotated fragments, effects, transparency and decorative overflow, then compare them with PNG pixels. JPEG encoding is decoded at its original dimensions. The production HEIC worker is bundled in memory and executed, then its real output is decoded using the independent `heic-to/csp` import decoder. Odd image height and red/blue pixel orientation are checked.
 
@@ -47,6 +47,18 @@ The initial development HEIC check triggered Vite's first-use dependency optimiz
 TypeScript, production and Docker builds pass; the dependency audit has no known vulnerabilities. A temporary Docker container returned HTTP 200 for `/`, `/edit`, `/finish` and an unchanged STL download, then was stopped. Vercel has explicit Edit/Finish rewrites without wildcard asset rewrites.
 
 Desktop/mobile verification images are saved alongside this document. The public delivery target is [poloroid-photobooth.vercel.app](https://poloroid-photobooth.vercel.app/).
+
+## Scissors and piece menus — October 15, 2026
+
+**67 automated tests pass.** New coverage includes closed scissor shapes and holes on rotated pieces, further cuts through those holes, all four ordering actions within fixed bands, six alignments using rotated bounds, independent clipboard snapshots, selection of exterior photos while the border blocks hit testing, release endpoints, and copy/paste/menu Undo history. Existing uploads, camera, repeat, crop, effects, routes, printing and all four output formats remain covered.
+
+Browser checks exercised an angled scissors drag, moving its fragment outside the frame, right-click selection, Copy/Paste, ordering, alignment and native keyboard dismissal. Desktop, 390 px and 320 px layouts were reviewed. Mobile submenus overlap their parent to stay inside the viewport; no horizontal overflow was found. See `scissors-desktop.png` and `scissors-mobile.png`.
+
+Actual downloaded PNG and reopened SVG measured **1926 × 1899 px**, including the photo outside the frame. Their mean pixel-channel difference was **0.098 out of 255**; the SVG contained no network image references. Native rendering tests also compare a closed cutout, its hole and rotated overflow between both formats. Printing continues to use the unchanged 88 × 107 mm frame scale.
+
+The old Duplicate action and unused styles were removed. Radix supplies accessible dropdown/context menus; polygon operations continue using polyclip-ts. The editor is loaded on demand, reducing initial JavaScript from approximately 545 KB to 515 KB before compression despite the added menu functionality. Large HEIC codec bundles remain separate and lazy.
+
+TypeScript, the production build, the final Docker build and the dependency audit all pass. A temporary container served `/`, `/edit`, `/finish` and an STL download with HTTP 200 and was stopped afterward.
 
 ## Verification limits
 

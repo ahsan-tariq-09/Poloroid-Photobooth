@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   BrowserRouter,
   Link,
@@ -16,9 +23,10 @@ import { useStudioMotion } from "./useStudioMotion";
 import { useStudioSession, type Screen } from "./studio/useStudioSession";
 import { Dialog } from "./studio/shared";
 import StartScreen from "./studio/StartScreen";
-import EditScreen from "./studio/EditScreen";
 import FinishScreen from "./studio/FinishScreen";
 import type { ExampleDefinition } from "./studio/examples";
+
+const EditScreen = lazy(() => import("./studio/EditScreen"));
 
 function SessionGuard({
   active,
@@ -186,11 +194,13 @@ function StudioApp() {
             path="/edit"
             element={
               <SessionGuard active={s.hasSession}>
-                <EditScreen
-                  studio={s}
-                  enabled={enabled}
-                  onUpload={() => openUpload("add")}
-                />
+                <Suspense fallback={<p role="status">Opening editor…</p>}>
+                  <EditScreen
+                    studio={s}
+                    enabled={enabled}
+                    onUpload={() => openUpload("add")}
+                  />
+                </Suspense>
               </SessionGuard>
             }
           />

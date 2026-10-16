@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { animate, motion, type AnimationPlaybackControls } from "motion/react";
 import { paintComposition, prepareTextures, type Textures } from "./render";
 import {
@@ -8,6 +8,7 @@ import {
   hitTest,
   localPoint,
   worldPoint,
+  shapePath,
   type Assets,
   type Composition,
   type Layer,
@@ -67,6 +68,7 @@ export default function Stage({
   onCut,
   onGrid,
   onError,
+  menuOpen = false,
 }: {
   assets: Assets;
   composition: Composition;
@@ -81,6 +83,7 @@ export default function Stage({
   onCut: (id: string, points: Point[]) => void;
   onGrid: (value: Layer, final: boolean) => void;
   onError: (message: string) => void;
+  menuOpen?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null),
     version = useRef(0),
@@ -264,13 +267,27 @@ export default function Stage({
     pending.current = null;
     setBox(null);
     setStroke([]);
-  }, [tool]);
+    if (menuOpen) {
+      controllers.current.forEach((controller, key) => {
+        if (key.startsWith("lift-")) controller.stop();
+      });
+      update((p) => ({
+        ...p,
+        layers: Object.fromEntries(
+          Object.entries(p.layers || {}).map(([id, value]) => [
+            id,
+            { ...value, lift: 0 },
+          ]),
+        ),
+      }));
+    }
+  }, [tool, cutMode, menuOpen]);
   const poses = composition.layers.map((l) =>
     layerPose(l, presentation.layers?.[l.id]),
   );
   const target = box || grid || poses.find((l) => l.id === selected),
     active = gesture.current;
-  const point = (event: PointerEvent<SVGSVGElement>) => {
+  const point = (event: MouseEvent<SVGSVGElement>) => {
     const matrix = event.currentTarget.getScreenCTM();
     if (matrix) {
       const p = new DOMPoint(event.clientX, event.clientY).matrixTransform(
@@ -341,14 +358,24 @@ export default function Stage({
           WORKSPACE.height
         }
         aria-label="Polaroid editor. Select pieces, drag handles to resize, or draw a cut."
+        onContextMenu={(e) => {
+          finish(true);
+          const p = point(e);
+          onSelect(hitTest(poses, p.x, p.y)?.id || null);
+        }}
         onPointerDown={(e) => {
-          if (e.button !== 0) return;
+          if (e.button !== 0 || menuOpen) return;
           const p = point(e),
             handle = (e.target as SVGElement).getAttribute("data-handle") || "";
           const photosOnly =
             tool === "cut" || tool === "crop" || tool === "repeat";
           const pose =
-            handle && target ? target : hitTest(poses, p.x, p.y, photosOnly);
+            handle && target
+              ? target
+              : hitTest(poses, p.x, p.y, photosOnly) ||
+                (tool === "cut" && target?.kind === "photo"
+                  ? target
+                  : undefined);
           if (!pose) {
             onSelect(null);
             return;
@@ -391,7 +418,14 @@ export default function Stage({
             offset: { x: mapped.x - p.x, y: mapped.y - p.y },
             mode,
             corner: handle,
-            points: [[local.x, local.y]],
+            points: [
+              cutMode === "freehand" && mode === "cut"
+                ? [
+                    Math.max(0, Math.min(stored.width, local.x)),
+                    Math.max(0, Math.min(stored.height, local.y)),
+                  ]
+                : [local.x, local.y],
+            ],
           };
           if (selected !== stored.id && !grid) onSelect(stored.id);
           if (mode === "move") lift(stored.id, 1);
@@ -404,7 +438,16 @@ export default function Stage({
             p = { x: raw.x + g.offset.x, y: raw.y + g.offset.y },
             local = localPoint(g.layer, p.x, p.y);
           if (g.mode === "cut") {
-            const value: Point = [local.x, local.y];
+            const value: Point =
+              cutMode === "freehand"
+                ? [
+                    Math.max(0, Math.min(g.layer.width, local.x)),
+                    Math.max(0, Math.min(g.layer.height, local.y)),
+                  ]
+                : [local.x, local.y];
+            const last = g.points.at(-1)!;
+            if (Math.hypot(value[0] - last[0], value[1] - last[1]) < 0.75)
+              return;
             g.points =
               cutMode === "straight"
                 ? [g.points[0], value]
@@ -477,7 +520,33 @@ export default function Stage({
           pending.current = next;
           onChange(next, false);
         }}
-        onPointerUp={() => finish()}
+        onPointerUp={(e) => {
+          const g = gesture.current;
+          if (g?.mode === "cut") {
+            const raw = point(e),
+              local = localPoint(
+                g.layer,
+                raw.x + g.offset.x,
+                raw.y + g.offset.y,
+              );
+            const end: Point =
+              cutMode === "freehand"
+                ? [
+                    Math.max(0, Math.min(g.layer.width, local.x)),
+                    Math.max(0, Math.min(g.layer.height, local.y)),
+                  ]
+                : [local.x, local.y];
+            if (cutMode === "straight") g.points = [g.points[0], end];
+            else if (
+              Math.hypot(
+                end[0] - g.points.at(-1)![0],
+                end[1] - g.points.at(-1)![1],
+              ) > 0.1
+            )
+              g.points.push(end);
+          }
+          finish();
+        }}
         onPointerCancel={() => finish(true)}
         onLostPointerCapture={() => {
           if (gesture.current) finish(true);
@@ -499,6 +568,7 @@ export default function Stage({
               ")"
             }
           >
+            <path d={shapePath(target)} className="selection piece-outline" />
             <rect
               x="-3"
               y="-3"
@@ -517,27 +587,28 @@ export default function Stage({
                       ? "Tape"
                       : target.name}
             </text>
-            {(["nw", "ne", "sw", "se"] as const).map((corner, i) => (
-              <g key={corner}>
-                <rect
-                  x={(i % 2 ? target.width : 0) - 18}
-                  y={(i > 1 ? target.height : 0) - 18}
-                  width="36"
-                  height="36"
-                  data-handle={corner}
-                  className="handle-hit"
-                  aria-label={"Resize " + corner}
-                />
-                <rect
-                  x={(i % 2 ? target.width : 0) - 7}
-                  y={(i > 1 ? target.height : 0) - 7}
-                  width="14"
-                  height="14"
-                  className="handle"
-                  aria-hidden="true"
-                />
-              </g>
-            ))}
+            {tool !== "cut" &&
+              (["nw", "ne", "sw", "se"] as const).map((corner, i) => (
+                <g key={corner}>
+                  <rect
+                    x={(i % 2 ? target.width : 0) - 18}
+                    y={(i > 1 ? target.height : 0) - 18}
+                    width="36"
+                    height="36"
+                    data-handle={corner}
+                    className="handle-hit"
+                    aria-label={"Resize " + corner}
+                  />
+                  <rect
+                    x={(i % 2 ? target.width : 0) - 7}
+                    y={(i > 1 ? target.height : 0) - 7}
+                    width="14"
+                    height="14"
+                    className="handle"
+                    aria-hidden="true"
+                  />
+                </g>
+              ))}
             {tool !== "crop" && tool !== "cut" && !grid && (
               <>
                 <line
@@ -586,11 +657,19 @@ export default function Stage({
           </g>
         )}
         {stroke.length > 0 && (
-          <polyline
-            points={stroke.map((p) => p.join(",")).join(" ")}
-            className="cut-guide"
-            fill="none"
-          />
+          <>
+            <circle
+              cx={stroke[0][0]}
+              cy={stroke[0][1]}
+              r="8"
+              className="cut-start"
+            />
+            <polyline
+              points={stroke.map((p) => p.join(",")).join(" ")}
+              className="cut-guide"
+              fill="none"
+            />
+          </>
         )}
         {seam.length > 1 && enabled && (
           <motion.polyline

@@ -11,6 +11,8 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@radix-ui/react-context-menu": "^2.4.1",
+    "@radix-ui/react-dropdown-menu": "^2.2.1",
     "dompurify": "^3.3.0",
     "elheif": "0.1.0",
     "heic-to": "^1.5.2",

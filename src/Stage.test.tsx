@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clone,
+  WORKSPACE,
   initialComposition,
   type Asset,
   type Composition,
@@ -74,6 +75,7 @@ async function render(
   enabled = true,
   currentAsset: Asset = asset,
   tool: Tool = "move",
+  cutMode: "straight" | "freehand" = "straight",
 ) {
   await act(async () =>
     root.render(
@@ -89,7 +91,7 @@ async function render(
         composition={composition}
         selected={composition.layers[0]?.id || null}
         tool={tool}
-        cutMode="straight"
+        cutMode={cutMode}
         enabled={enabled}
         onSelect={onDown}
         onChange={onMove}
@@ -184,8 +186,8 @@ function pointer(type: string, x: number, y: number, target: Element) {
   const event = new MouseEvent(type, {
     bubbles: true,
     button: 0,
-    clientX: x + 35,
-    clientY: y,
+    clientX: x - WORKSPACE.x,
+    clientY: y - WORKSPACE.y,
   });
   Object.defineProperty(event, "pointerId", { value: 1 });
   target.dispatchEvent(event);
@@ -197,7 +199,12 @@ async function pointerSetup(c: Composition, tool: Tool = "move") {
   });
   Object.defineProperty(SVGSVGElement.prototype, "getBoundingClientRect", {
     configurable: true,
-    value: () => ({ left: 0, top: 0, width: 670, height: 710 }),
+    value: () => ({
+      left: 0,
+      top: 0,
+      width: WORKSPACE.width,
+      height: WORKSPACE.height,
+    }),
   });
   Object.defineProperty(SVGSVGElement.prototype, "setPointerCapture", {
     configurable: true,
@@ -211,6 +218,50 @@ async function pointerSetup(c: Composition, tool: Tool = "move") {
   return host.querySelector("svg")!;
 }
 describe("real pointer gestures", () => {
+  it("keeps a closed scissor path and its release endpoint, without triggering resize handles", async () => {
+    const c = initialComposition(),
+      svg = await pointerSetup(c, "cut");
+    await render(c, false, asset, "cut", "freehand");
+    expect(host.querySelector('[data-handle="se"]')).toBeNull();
+    await act(async () => pointer("pointerdown", 170, 165, svg));
+    for (const [x, y] of [
+      [370, 165],
+      [400, 275],
+      [270, 365],
+    ])
+      await act(async () => pointer("pointermove", x, y, svg));
+    expect(onUp).not.toHaveBeenCalled();
+    await act(async () => pointer("pointerup", 171, 166, svg));
+    expect(onUp).toHaveBeenCalledOnce();
+    expect(onUp.mock.calls[0][0]).toBe(c.layers[0].id);
+    expect(
+      onUp.mock.calls[0][1].map((p: number[]) => p.map(Math.round)),
+    ).toEqual([
+      [100, 100],
+      [300, 100],
+      [330, 210],
+      [200, 300],
+      [101, 101],
+    ]);
+    expect(host.querySelector(".cut-guide")).toBeNull();
+  });
+  it("selects visible overflow on right click without moving it", async () => {
+    const c = initialComposition();
+    c.layers[0].x = -100;
+    const svg = await pointerSetup(c);
+    await act(async () =>
+      svg.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          clientX: -WORKSPACE.x,
+          clientY: 200 - WORKSPACE.y,
+          button: 2,
+        }),
+      ),
+    );
+    expect(onDown).toHaveBeenLastCalledWith(c.layers[0].id);
+    expect(onMove).not.toHaveBeenCalled();
+  });
   it("resizes using the corner handle, committing just once at release", async () => {
     const c = initialComposition(),
       svg = await pointerSetup(c);

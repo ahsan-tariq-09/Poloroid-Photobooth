@@ -179,11 +179,6 @@ export function paintComposition(
     const visual = presentation?.layers?.[stored.id],
       layer = layerPose(stored, visual);
     ctx.save();
-    if (layer.kind === "photo") {
-      ctx.beginPath();
-      ctx.rect(PHOTO.x, PHOTO.y, PHOTO.size, PHOTO.size);
-      ctx.clip();
-    }
     ctx.globalAlpha =
       layer.opacity *
       (layer.kind === "photo"
@@ -388,17 +383,9 @@ export async function serializeSvg(assets: Assets, c: Composition) {
     escapeXml(c.caption || "My Poloroid") +
     "</title>" +
     frame +
-    '<defs><clipPath id="opening"><rect x="' +
-    PHOTO.x +
-    '" y="' +
-    PHOTO.y +
-    '" width="' +
-    PHOTO.size +
-    '" height="' +
-    PHOTO.size +
-    '"/></clipPath></defs><g clip-path="url(#opening)">' +
     photosSvg.join("") +
-    '</g><image x="40" y="575" width="520" height="100" xlink:href="' +
+    `<path fill="${c.frameColor}" fill-rule="evenodd" d="M${FRAME.x} ${FRAME.y}h${FRAME.width}v${FRAME.height}h${-FRAME.width}Z M${PHOTO.x} ${PHOTO.y}h${PHOTO.size}v${PHOTO.size}h${-PHOTO.size}Z"/>` +
+    '<image x="40" y="575" width="520" height="100" xlink:href="' +
     caption.toDataURL("image/png") +
     '"/>' +
     decorationsSvg.join("") +

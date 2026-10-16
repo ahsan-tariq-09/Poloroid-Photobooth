@@ -3,7 +3,7 @@ import {
   FRAME,
   PHOTO,
   bounds,
-  duplicateLayer,
+  pasteLayer,
   hitTest,
   initialComposition,
   localPoint,
@@ -13,18 +13,138 @@ import {
   repeatLayer,
   shape,
   transformGrid,
+  alignLayer,
+  orderLayer,
+  addDecoration,
+  contains,
 } from "./model";
 import { historyReducer } from "./history";
 import { cropGeometry } from "./render";
 import { cpuEffects } from "./effects";
 
 describe("collage geometry", () => {
-  it("keeps the frame at the classic 88:107 ratio and ignores photo overflow", () => {
+  it("cuts a closed shape from a rotated photo, leaving a matching hole and reusable pieces", () => {
+    const c = initialComposition();
+    c.layers[0].rotation = 27;
+    const next = cutLayer(
+      c,
+      c.layers[0].id,
+      [
+        [100, 100],
+        [300, 100],
+        [330, 210],
+        [200, 300],
+        [100, 100],
+      ],
+      "freehand",
+    );
+    expect(next.layers).toHaveLength(2);
+    const ring = next.layers.find((l) => l.mask![0].length === 2)!;
+    expect(ring).toBeDefined();
+    const center = worldPoint(c.layers[0], 210, 180);
+    expect(contains(ring, center.x, center.y)).toBe(false);
+    expect(
+      next.layers.filter((l) => contains(l, center.x, center.y)),
+    ).toHaveLength(1);
+    const split = cutLayer(
+      next,
+      ring.id,
+      [
+        [0, 230],
+        [460, 230],
+      ],
+      "straight",
+    );
+    expect(split.layers.length).toBeGreaterThan(2);
+    expect(c.layers).toHaveLength(1);
+  });
+  it("orders by one step or all the way while preserving the fixed photo and decoration bands", () => {
+    let c = initialComposition();
+    c = pasteLayer(c, c.layers[0]);
+    c = pasteLayer(c, c.layers[0]);
+    c = addDecoration(c, "tape", "#eee");
+    const [a, b, d, t] = c.layers.map((l) => l.id);
+    expect(orderLayer(c, a, "forward").layers.map((l) => l.id)).toEqual([
+      b,
+      a,
+      d,
+      t,
+    ]);
+    expect(orderLayer(c, a, "front").layers.map((l) => l.id)).toEqual([
+      b,
+      d,
+      a,
+      t,
+    ]);
+    expect(orderLayer(c, d, "backward").layers.map((l) => l.id)).toEqual([
+      a,
+      d,
+      b,
+      t,
+    ]);
+    expect(orderLayer(c, d, "back").layers.map((l) => l.id)).toEqual([
+      d,
+      a,
+      b,
+      t,
+    ]);
+    expect(orderLayer(c, t, "back")).toBe(c);
+  });
+  it("aligns the actual rotated outline to all six page positions", () => {
+    const l = initialComposition().layers[0];
+    l.rotation = 35;
+    for (const alignment of [
+      "left",
+      "center",
+      "right",
+      "top",
+      "middle",
+      "bottom",
+    ] as const) {
+      const aligned = alignLayer(l, alignment);
+      const points = shape(aligned)
+        .flat(2)
+        .map(([x, y]) => worldPoint(aligned, x, y));
+      const xs = points.map((p) => p.x),
+        ys = points.map((p) => p.y);
+      const values = {
+        left: Math.min(...xs),
+        center: (Math.min(...xs) + Math.max(...xs)) / 2,
+        right: Math.max(...xs),
+        top: Math.min(...ys),
+        middle: (Math.min(...ys) + Math.max(...ys)) / 2,
+        bottom: Math.max(...ys),
+      };
+      const expected = {
+        left: FRAME.x,
+        center: FRAME.x + FRAME.width / 2,
+        right: FRAME.x + FRAME.width,
+        top: FRAME.y,
+        middle: FRAME.y + FRAME.height / 2,
+        bottom: FRAME.y + FRAME.height,
+      };
+      expect(values[alignment]).toBeCloseTo(expected[alignment]);
+      expect(aligned.source).toEqual(l.source);
+    }
+  });
+  it("pastes an independent snapshot and selects visible photo overflow without selecting through the border", () => {
+    const c = initialComposition();
+    const copied = structuredClone(c.layers[0]);
+    const next = pasteLayer(c, copied);
+    next.layers[1].crop!.zoom = 2;
+    expect(copied.crop!.zoom).toBe(1);
+    expect(next.layers[1].id).not.toBe(copied.id);
+    c.layers[0].x = -100;
+    expect(hitTest(c.layers, 0, 200)?.id).toBe(c.layers[0].id);
+    expect(hitTest(c.layers, 50, 200)).toBeUndefined();
+    expect(hitTest(c.layers, 100, 200)?.id).toBe(c.layers[0].id);
+  });
+  it("keeps the frame at the classic 88:107 ratio and includes photo overflow", () => {
     const c = initialComposition();
     const original = bounds(c);
     c.layers[0].x = -500;
     c.layers[0].rotation = 45;
-    expect(bounds(c)).toEqual(original);
+    expect(bounds(c).x).toBeLessThan(original.x);
     expect(FRAME.width / FRAME.height).toBeCloseTo(88 / 107);
     expect(hitTest(c.layers, 20, 20)).toBeUndefined();
   });
@@ -193,7 +313,7 @@ describe("collage geometry", () => {
   });
   it("uses fragment masks and fixed bands when selecting pieces", () => {
     const c = initialComposition(),
-      next = duplicateLayer(c, c.layers[0].id);
+      next = pasteLayer(c, c.layers[0]);
     next.layers[1].mask = [
       [
         [
