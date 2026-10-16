@@ -126,13 +126,10 @@ export function drawDecoration(ctx: CanvasRenderingContext2D, layer: Layer) {
 }
 export function drawCaption(ctx: CanvasRenderingContext2D, caption: string) {
   ctx.fillStyle = "#493e30";
-  ctx.font = 'italic 25px "DM Serif Display", Georgia, serif';
+  ctx.font = '25px "Helvetica Neue", Helvetica, Arial, sans-serif';
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(caption, 300, 598, 450);
-  ctx.font = '9px "DM Mono", monospace';
-  ctx.fillStyle = "#9b8c74";
-  ctx.fillText("A MOMENT WORTH KEEPING", 300, 643);
 }
 
 export async function renderComposition(

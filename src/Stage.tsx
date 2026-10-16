@@ -318,7 +318,6 @@ export default function Stage({
       className={"artboard tool-" + tool + (active ? " is-dragging" : "")}
       style={{
         aspectRatio: WORKSPACE.width + "/" + WORKSPACE.height,
-        rotate: -3,
       }}
       initial={enabled ? { y: 65, opacity: 0 } : false}
       animate={{ y: 0, opacity: 1 }}
@@ -509,26 +508,35 @@ export default function Stage({
             />
             <text className="target-label" x="0" y="-13">
               {grid
-                ? "REPEAT · 3 × 3"
+                ? "Repeat · 3 × 3"
                 : tool === "crop"
-                  ? "CROP TARGET"
+                  ? "Crop target"
                   : tool === "cut"
-                    ? "CUT TARGET"
+                    ? "Cut target"
                     : target.kind === "tape"
-                      ? "TAPE"
+                      ? "Tape"
                       : target.name}
             </text>
             {(["nw", "ne", "sw", "se"] as const).map((corner, i) => (
-              <rect
-                key={corner}
-                x={(i % 2 ? target.width : 0) - 7}
-                y={(i > 1 ? target.height : 0) - 7}
-                width="14"
-                height="14"
-                data-handle={corner}
-                className="handle"
-                aria-label={"Resize " + corner}
-              />
+              <g key={corner}>
+                <rect
+                  x={(i % 2 ? target.width : 0) - 18}
+                  y={(i > 1 ? target.height : 0) - 18}
+                  width="36"
+                  height="36"
+                  data-handle={corner}
+                  className="handle-hit"
+                  aria-label={"Resize " + corner}
+                />
+                <rect
+                  x={(i % 2 ? target.width : 0) - 7}
+                  y={(i > 1 ? target.height : 0) - 7}
+                  width="14"
+                  height="14"
+                  className="handle"
+                  aria-hidden="true"
+                />
+              </g>
             ))}
             {tool !== "crop" && tool !== "cut" && !grid && (
               <>
@@ -542,10 +550,17 @@ export default function Stage({
                 <circle
                   cx={target.width / 2}
                   cy="-32"
-                  r="9"
+                  r="20"
                   data-handle="rotate"
-                  className="handle rotation-handle"
+                  className="handle-hit rotation-handle"
                   aria-label="Rotate selected piece"
+                />
+                <circle
+                  cx={target.width / 2}
+                  cy="-32"
+                  r="9"
+                  className="handle"
+                  aria-hidden="true"
                 />
               </>
             )}
@@ -591,7 +606,7 @@ export default function Stage({
       </svg>
       {enabled && (presentation.development ?? 1) < 0.98 && (
         <div className="developing-label" role="status">
-          DEVELOPING A LITTLE MEMORY…
+          Developing photo…
         </div>
       )}
     </motion.div>

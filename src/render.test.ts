@@ -1,9 +1,4 @@
-import {
-  createCanvas,
-  GlobalFonts,
-  ImageData,
-  loadImage,
-} from "@napi-rs/canvas";
+import { createCanvas, ImageData, loadImage } from "@napi-rs/canvas";
 import { Resvg } from "@resvg/resvg-js";
 import { Buffer } from "node:buffer";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -24,19 +19,12 @@ import {
   serializeSvg,
   prepareTextures,
   flatten,
+  drawCaption,
 } from "./render";
 
 beforeAll(() => {
   vi.stubGlobal("document", { createElement: () => createCanvas(1, 1) });
   vi.stubGlobal("ImageData", ImageData);
-  GlobalFonts.registerFromPath(
-    "node_modules/@fontsource/dm-serif-display/files/dm-serif-display-latin-400-italic.woff2",
-    "DM Serif Display",
-  );
-  GlobalFonts.registerFromPath(
-    "node_modules/@fontsource/dm-mono/files/dm-mono-latin-400-normal.woff2",
-    "DM Mono",
-  );
 });
 async function makeAsset(svg?: string): Promise<Asset> {
   let image;
@@ -63,6 +51,20 @@ const at = (output: HTMLCanvasElement, x: number, y: number) => [
   ...output.getContext("2d")!.getImageData(x, y, 1, 1).data,
 ];
 describe("real Polaroid rendering and export", () => {
+  it("renders only the supplied caption using the interface font stack", () => {
+    const fillText = vi.fn();
+    const ctx = { fillText } as unknown as CanvasRenderingContext2D;
+    drawCaption(ctx, "Coast, October 2026");
+    expect(fillText).toHaveBeenCalledExactlyOnceWith(
+      "Coast, October 2026",
+      300,
+      598,
+      450,
+    );
+    expect(ctx.font).toBe(
+      '25px "Helvetica Neue", Helvetica, Arial, sans-serif',
+    );
+  });
   it("renders the actual sample as a complete Polaroid", async () => {
     const image = await loadImage("public/sample-coast.png");
     const asset = {
@@ -72,7 +74,7 @@ describe("real Polaroid rendering and export", () => {
       url: "sample",
       name: "sample",
     };
-    const composition = initialComposition(true);
+    const composition = initialComposition();
     const output = await renderComposition(
       canvas(1, 1),
       { sample: asset },

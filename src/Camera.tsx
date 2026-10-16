@@ -35,7 +35,10 @@ export default function Camera({
       setError(
         "Camera capture needs HTTPS or localhost. You can still upload a photo.",
       );
-      return;
+      return () => {
+        alive.current = false;
+        previous?.focus();
+      };
     }
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false })
@@ -164,7 +167,7 @@ export default function Camera({
         }}
       >
         <div className="modal-top">
-          <span className="eyebrow">THE PHOTO BOOTH</span>
+          <span className="eyebrow">Camera</span>
           <button
             className="icon-button"
             aria-label="Close camera"
@@ -173,8 +176,8 @@ export default function Camera({
             <X size={20} />
           </button>
         </div>
-        <h2 id="camera-title">Ready for your close-up?</h2>
-        <p>A three-second countdown. One little memory.</p>
+        <h2 id="camera-title">Take a photo</h2>
+        <p>Capture starts after a three-second countdown.</p>
         <div className="camera-view">
           <video
             ref={video}

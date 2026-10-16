@@ -1,0 +1,226 @@
+.artboard {
+  position: relative;
+  width: 100%;
+  max-width: 443px;
+  flex-shrink: 1;
+  filter: drop-shadow(0 12px 11px #6f5a3426);
+}
+.artboard canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.interaction {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+.tool-cut .interaction {
+  cursor: crosshair;
+}
+.tool-crop .interaction {
+  cursor: move;
+}
+.interaction:active {
+  cursor: grabbing;
+}
+.selection {
+  stroke: #e7522e;
+  stroke-width: 1.5;
+  fill: none;
+  stroke-dasharray: 5 3;
+  pointer-events: none;
+}
+.handle {
+  fill: #fff6e7;
+  stroke: #e7522e;
+  stroke-width: 1.5;
+  pointer-events: none;
+  cursor: nwse-resize;
+}
+.cut-guide {
+  stroke: #e7522e;
+  stroke-width: 2;
+  stroke-dasharray: 7 4;
+}
+.handle-hit {
+  fill: transparent;
+  pointer-events: all;
+  cursor: nwse-resize;
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: #332c238a;
+  backdrop-filter: blur(6px);
+  z-index: 60;
+  padding: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.info-modal,
+.camera-modal {
+  background: #faf1df;
+  border: 1px solid #cebd9e;
+  box-shadow: 0 20px 100px #32271e44;
+  border-radius: 8px;
+  padding: 28px;
+  width: 650px;
+  max-width: 100%;
+  max-height: 90dvh;
+  overflow: auto;
+}
+.modal-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 18px;
+}
+.modal-top .eyebrow {
+  font-size: 9px;
+}
+.icon-button {
+  display: flex;
+  padding: 6px;
+  color: #9c7e54;
+}
+.info-modal h2,
+.camera-modal h2 {
+  font: 35px var(--font);
+  letter-spacing: -0.7px;
+  margin-bottom: 16px;
+}
+.modal-description,
+.camera-modal > p {
+  font-size: 12px;
+  color: #968061;
+  line-height: 1.8;
+  margin-bottom: 20px;
+}
+.camera-view {
+  position: relative;
+  background: #403b31;
+  aspect-ratio: 4/3;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.camera-view video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.camera-message {
+  position: absolute;
+  inset: 0;
+  padding: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f3e6cb;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff2dc;
+  background: #4432242b;
+  font: 100px var(--font);
+}
+.camera-actions {
+  display: flex;
+  justify-content: space-between;
+  margin: 20px 0 10px;
+  gap: 15px;
+}
+.camera-modal > .text-button {
+  margin: auto;
+}
+.cut-feedback {
+  stroke: #e7522e;
+  stroke-width: 3;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.developing-label {
+  position: absolute;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 8px var(--font);
+  letter-spacing: 1px;
+  color: #917957;
+  background: #faf0ddd9;
+  padding: 8px 11px;
+  white-space: nowrap;
+  border: 1px solid #dfcaab;
+  border-radius: 2px;
+  pointer-events: none;
+}
+.artboard.is-dragging .interaction {
+  cursor: grabbing;
+}
+.target-label {
+  font: 10px var(--font);
+  fill: #9c321d;
+  paint-order: stroke;
+  stroke: #fff8e8;
+  stroke-width: 3px;
+  pointer-events: none;
+}
+.rotation-stem {
+  stroke: #e7522e;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+.rotation-handle {
+  cursor: grab;
+}
+.print-sheet {
+  display: none;
+}
+@media print {
+  @page {
+    size: auto;
+    margin: 12mm;
+  }
+  body {
+    background: white !important;
+    margin: 0 !important;
+  }
+  body > * {
+    display: none !important;
+  }
+  body > .print-sheet {
+    display: flex !important;
+    position: fixed;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    break-inside: avoid;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .print-polaroid {
+    position: relative;
+    width: 88mm !important;
+    height: 107mm !important;
+    flex: 0 0 88mm;
+    margin: 0;
+    overflow: visible;
+  }
+  .print-polaroid img {
+    max-width: none !important;
+  }
+}

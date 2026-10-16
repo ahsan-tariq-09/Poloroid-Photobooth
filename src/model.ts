@@ -2,14 +2,7 @@ import { difference, intersection } from "polyclip-ts";
 export const FRAME = { x: 40, y: 35, width: 520, height: (520 * 107) / 88 };
 export const PHOTO = { x: 70, y: 65, size: 460 };
 export const WORKSPACE = { x: -35, y: 0, width: 670, height: 710 };
-export type Tool =
-  | "move"
-  | "crop"
-  | "cut"
-  | "repeat"
-  | "tape"
-  | "paper"
-  | "effects";
+export type Tool = "move" | "crop" | "cut" | "repeat" | "tape" | "paper";
 export type Rect = { x: number; y: number; width: number; height: number };
 export type Point = [number, number];
 export type Polygon = Point[][];
@@ -67,14 +60,11 @@ export function photoLayer(
     source: { x: 0, y: 0, width: PHOTO.size, height: PHOTO.size },
   };
 }
-export function initialComposition(
-  sample = false,
-  assetId = "sample",
-): Composition {
+export function initialComposition(assetId = "sample"): Composition {
   return {
     layers: [photoLayer(assetId)],
     effects: { film: 0, copier: 0, seed: 76 },
-    caption: sample ? "somewhere, summer '76" : "",
+    caption: "",
     frameColor: "#fff9e9",
   };
 }

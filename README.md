@@ -1,6 +1,8 @@
-# Poloroid — The Analog Photo Lab
+# Poloroid
 
-A nostalgic browser photo studio for making deliberately imperfect Polaroids. Built with React, TypeScript, Vite, WebGPU, and a Canvas fallback. Every artwork download includes the Polaroid border and wider caption area.
+A photo-first browser studio with a warm paper palette, upright Polaroids and a Start → Edit → Finish flow. Built with React, React Router, TypeScript, Vite, WebGPU and a Canvas fallback.
+
+Public site: [poloroid-photobooth.vercel.app](https://poloroid-photobooth.vercel.app/).
 
 ## Run with Docker
 
@@ -29,7 +31,7 @@ pnpm preview
 
 ## Deploy with Vercel
 
-`vercel.json` configures the Vite build and static `dist` output. Use Node 24 and set the build environment variable `ENABLE_EXPERIMENTAL_COREPACK=1` so Vercel uses the pinned pnpm version in `package.json`. No application secrets or backend are required.
+`vercel.json` configures the Vite build, static `dist` output and explicit `/edit` and `/finish` rewrites. Static assets and STL downloads keep their original paths. Use Node 24 and set the build environment variable `ENABLE_EXPERIMENTAL_COREPACK=1` so Vercel uses the pinned pnpm version in `package.json`. No application secrets or backend are required.
 
 The Vercel project is `poloroid-photobooth` in `knightahsan09-7593`. Preview deployments require Vercel authentication. The initial deployment uses the local checkout because the Vercel account does not yet have a GitHub login connection. To enable automatic deployments, connect GitHub in Vercel and link `ahsan-tariq-09/Poloroid-Photobooth` in the project's Git settings.
 
@@ -37,18 +39,19 @@ For a manual preview, link the checkout to that project, verify the project and 
 
 ## Use the studio
 
-- Add multiple JPG/JPEG, PNG, HEIC/HEIF, or self-contained SVG files through the picker or drag-and-drop. The first upload replaces the demo; later photos join the same Polaroid. Files decode sequentially, and an invalid file does not discard the others. Camera stills join the collage too.
-- The Polaroid frame stays fixed above the photos. Photos and cut fragments are clipped to the square opening; tape and paper stay above the border. Desktop workspace dimensions remain steady while settings scroll.
-- Move, resize corner handles, or use numeric position/size controls. Rotate tape and other layers with the circular handle or Rotation slider. Layer ordering stays within photo and decoration bands.
-- Crop trims the selected piece through a drawn rectangle or corner handles, without stretching surviving pixels. Zoom independently reframes the selected photo source.
-- Cut offers straight lines at any angle and non-self-crossing, edge-to-edge freehand strokes. Release the stroke to cut. Cut through center and its angle field provide a keyboard alternative. Invalid strokes do not change the collage.
-- Repeat creates exactly nine full copies inside a fitted 3×3 grid. Adjust the group box or its numeric fields while Repeat is active, then switch tools to move, crop, or cut individual tiles. Duplicate remains a separate single-copy action.
-- Editing gestures commit on release. Undo/Redo reverses one completed action. Reset restores all current source photos to their initial arrangement, clearing cuts, decorations and effects.
-- Choose PNG, JPEG, HEIC, or SVG in Download format. Every download includes the finished frame and caption. PNG/SVG preserve transparent decorative overflow; JPEG/HEIC flatten it onto white.
-- Print prepares one Polaroid with a physical frame of 88 × 107 mm, centered on the sheet. Select **Actual size / 100% scale**, disable headers/footers, and avoid Fit to page in the printer dialog. Printer-driver overrides and physical printer calibration remain outside the page's control.
-- The supplied STL frame models remain separate downloads. Check their source dimensions before fitting an 88 × 107 mm print; no automatic STL fit is implied.
+1. **Start (`/`)**: choose or drop JPG/JPEG, PNG, HEIC/HEIF or self-contained SVG files, use the camera, or try Classic, Cut and taped, or 3×3 grid. Examples reuse the coastal photo and render their thumbnails from the same deterministic composition that opens in Edit.
+2. **Edit (`/edit`)**: the fixed, upright Polaroid stays above the photo layers. Arrange contains Add photos, Move, Crop, Cut, Repeat and Zoom. Decorate adds tape/paper and exposes color, rotation and size. Look contains film/copier settings, frame color and caption. Photos and pieces expands layer selection, ordering, duplication and deletion; More options expands precise geometry and nudging.
+3. **Finish (`/finish`)**: download PNG, JPEG, genuine HEIC or self-contained SVG, print, or download the separate STL frame models. Every artwork includes the complete frame and any user-entered caption, with no editor controls or decorative slogans.
 
-Keyboard shortcuts: Move `V`, Crop `C`, Cut `X`, Repeat `D`, Tape `T`, Paper `P`, Distort `E`; undo `Ctrl/⌘ Z`, redo `Ctrl/⌘ Shift Z`; arrow keys nudge the selected layer (Shift moves 10 units); Delete removes a selected piece; Escape clears selection or closes a dialog.
+The initial upload opens a new composition with an empty caption. Additional photos in Edit join the existing composition independently. Imports decode sequentially and successful files survive mixed-batch failures. Returning to Start offers Resume editing; starting a new upload or example asks before replacing the existing work. Failed replacement imports leave that work intact.
+
+Navigation, category selection and temporary animations do not enter composition history. Back/Forward and Back to editing preserve assets, selection and Undo/Redo. Refresh clears the in-memory session; direct Edit/Finish visits without a session return to Start with an explanation. No account or storage is added.
+
+Crop trims through a drawn rectangle or corner handles without stretching the surviving pixels. Cut accepts arbitrary straight lines and non-self-crossing edge-to-edge freehand strokes; Cut by angle provides a numeric alternative. Invalid strokes leave the composition unchanged. Repeat creates exactly nine full copies in a fitted 3×3 grid; its box adjusts the tiles together until the tool or category changes. Duplicate makes a separate single copy.
+
+Gestures commit on release. Undo/Redo reverses each completed action. Reset restores the initial composition (including an example's arrangement) plus the original arrangement of photos subsequently added. Individual layers can rotate; the outer frame stays upright. All controls retain native Tab, button and form keyboard behavior, and dialogs support Escape dismissal.
+
+Print prepares one Polaroid with an outer frame of **88 × 107 mm**, centered on the sheet. Choose **Actual size / 100% scale**, disable headers/footers, and avoid Fit to page in the printer dialog. Decorative overflow keeps its original scale. Printer settings and physical calibration can override sizing. Check each supplied STL's opening separately before fitting a photo.
 
 ## Interface interactions
 
@@ -75,14 +78,17 @@ WebGPU runs the actual effect shader in `src/effects.wgsl`. The Canvas implement
 - `src/model.ts`, `history.ts`: immutable layer geometry and gesture history.
 - `src/imports.ts`: supported file detection, HEIC conversion, SVG validation.
 - `src/render.ts`, `effects.ts`, `effects.wgsl`: shared composition geometry, Canvas/SVG exports, GPU/CPU effects.
-- `src/App.tsx`, `Stage.tsx`, `Camera.tsx`, `styles.css`: responsive interface, pointer editing and camera lifecycle.
+- `src/App.tsx`: routing, session guards, upload intent and replacement confirmation.
+- `src/studio/`: shared session hook, Start/Edit/Finish screens, grouped controls, deterministic examples and shared-renderer previews.
+- `src/Stage.tsx`, `Camera.tsx`: pointer editing and camera lifecycle.
+- `src/styles.css`, `studio/canvas.css`: responsive layout, canvas interactions, dialogs and physical print styles.
 - `public/frames`: the three unchanged STL files supplied for this project.
 - `docs/inspiration`: the supplied references used for the design, retained as documentation rather than displayed as stock website screenshots.
-- `.openai/hosting.json`: private Sites deployment identity and static `dist` output.
+- `.openai/hosting.json`: retained identity for the earlier Sites preview; the public delivery target is Vercel.
 
 ## Validation
 
-The interaction upgrade passes 37 automated tests, TypeScript checks, the production build, and the Docker build. The test dependency audit is clean. See [validation coverage and device limitations](docs/VALIDATION.md) and the [desktop interface verification view](docs/studio-desktop.png).
+The photo-first upgrade passes 59 automated tests, TypeScript checks, production and Docker builds. The dependency audit reports no known vulnerabilities. See [validation coverage and device limitations](docs/VALIDATION.md) and the [desktop interface verification view](docs/studio-desktop.png).
 
 ## References and credits
 

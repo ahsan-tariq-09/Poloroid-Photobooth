@@ -34,15 +34,19 @@ All supplied STL files match their originals byte-for-byte:
 | frame-polaroid-part2.stl | 293887702cd1070c646eff7199b2bca8e26739cb10398c70c8f45bb90c75d9f8 |
 | polaroid frame.stl       | d399030138a97533220fbc51109a8b2421293b523d5d218803cdf835da89ceea |
 
-## Hosted interface verification
+## Photo-first flow verification — October 15, 2026
 
-The current private deployment was exercised at its normal browser size and at 1440-pixel desktop / 390-pixel mobile widths. The viewport override was reset afterward. The browser imported PNG, JPEG, a genuine exported HEIC, and transparent gradient/clipped SVG artwork together, retaining four photo layers. An angled pointer-drawn cut created independent fragments. A 3×3 repeat, grid resize and Undo, and tape rotation via its circular handle were verified.
+The suite now has **59 passing tests**. The existing 49 regressions were retained and adapted to the new screens. Added checks cover route guards, all three editable examples matching their thumbnail definitions, Back/Forward navigation, pending caption commits, selection and history across screens, replacement confirmation and cancellation, failed replacement preservation, stale import rejection and URL cleanup, removed editor bindings, category changes releasing repeat groups, camera countdown entry and caption-only sans-serif rendering.
 
-Real PNG/JPEG/SVG downloads from the same cut collage all measured 1560 × 1899 pixels. Reopening the SVG offline with resvg differed from PNG by a mean 0.15 channel levels out of 255. The SVG contained no remote image links. The HEIC download had an `ftypheic` brand (497,723 bytes) and was successfully uploaded back into the editor.
+Browser checks used the production build at desktop, 390 px and 320 px widths. Controls appear below the canvas on mobile; no horizontal overflow was found. Real PNG, JPEG, SVG and HEIC downloads were imported together successfully. The HEIC export had an `ftypheic` brand and was decoded back into a photo layer. Group repeat, numeric grid resizing, tape rotation and angled cuts were exercised through the reorganized controls. Native Tab interaction commits numeric changes.
 
-Visual review caught secondary-button color and mobile action-row overflow regressions; both were corrected before final publication. Desktop/mobile verification images are saved alongside this document. Print preparation is covered by the DOM/geometry tests; no physical print was sent.
+Downloaded PNG/JPEG/SVG artwork measured 1560 × 1899 px. The reopened SVG differed from its PNG by a mean **0.157 channel levels out of 255** and contained no network image references. The finished canvas and saved files have upright frames, retain entered captions and omit the removed frame slogan. Printing remains covered by actual-size DOM tests; no physical print was sent.
 
-The suite has 49 passing tests. TypeScript, production and Docker builds pass. The dependency audit reports zero vulnerabilities. The initial JS chunk is about 512 kB before gzip; both HEIC codec bundles remain lazy-loaded.
+The initial development HEIC check triggered Vite's first-use dependency optimization reload. Production HEIC export passed. The development configuration now explicitly discovers both codecs before editing to avoid this reload. Both codec bundles remain lazy in production. Unused DM fonts and old page styles/handlers were removed. No new photo effects were added.
+
+TypeScript, production and Docker builds pass; the dependency audit has no known vulnerabilities. A temporary Docker container returned HTTP 200 for `/`, `/edit`, `/finish` and an unchanged STL download, then was stopped. Vercel has explicit Edit/Finish rewrites without wildcard asset rewrites.
+
+Desktop/mobile verification images are saved alongside this document. The public delivery target is [poloroid-photobooth.vercel.app](https://poloroid-photobooth.vercel.app/).
 
 ## Verification limits
 

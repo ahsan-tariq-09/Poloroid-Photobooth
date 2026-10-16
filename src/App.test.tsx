@@ -37,6 +37,7 @@ vi.mock("./render", () => ({
   exportFile: mocks.exportFile,
   printComposition: mocks.printComposition,
   texture: async () => document.createElement("canvas"),
+  renderComposition: async () => document.createElement("canvas"),
 }));
 
 vi.mock("./Stage", () => ({
@@ -59,6 +60,7 @@ vi.mock("./Stage", () => ({
 }));
 
 import App from "./App";
+import { examples } from "./studio/examples";
 
 let root: Root, host: HTMLDivElement;
 
@@ -145,6 +147,9 @@ beforeEach(async () => {
   mocks.exportFile.mockResolvedValue(undefined);
   mocks.printComposition.mockResolvedValue(undefined);
 
+  window.history.replaceState(null, "", "/");
+  window.scrollTo = vi.fn();
+  mocks.current = null;
   host = document.createElement("div");
 
   document.body.append(host);
@@ -168,11 +173,25 @@ afterEach(async () => {
   vi.clearAllMocks();
 });
 
+async function button(text: string) {
+  const target = [...host.querySelectorAll<HTMLButtonElement>("button")].find(
+    (b) => b.textContent?.trim() === text,
+  );
+  expect(target, text).toBeDefined();
+  await act(async () => target!.click());
+  await flush();
+}
+async function startClassic() {
+  await click('[aria-label="Try Classic example"]');
+}
 describe("existing editor regression", () => {
+  beforeEach(startClassic);
   it("keeps a new photo fragment selected when tape sits above the photo", async () => {
-    await click('[title="Tape (T)"]');
+    await button("Decorate");
+    await click('[title="Tape"]');
 
-    await click('[title="Cut (X)"]');
+    await button("Arrange");
+    await click('[title="Cut"]');
 
     await click(".tool-target-controls .secondary-button");
 
@@ -198,17 +217,19 @@ describe("existing editor regression", () => {
 
     await click('[aria-label="Select photograph"]');
 
-    await click('[title="Cut (X)"]');
+    await button("Arrange");
+    await click('[title="Cut"]');
 
     await click(".tool-target-controls .secondary-button");
 
     expect(comp().layers).toHaveLength(2);
 
-    await click('[title="Tape (T)"]');
+    await button("Decorate");
+    await click('[title="Tape"]');
 
     expect(comp().layers).toHaveLength(3);
 
-    await click('[title="Paper (P)"]');
+    await click('[title="Paper"]');
 
     expect(comp().layers).toHaveLength(4);
 
@@ -242,9 +263,11 @@ describe("existing editor regression", () => {
   });
 
   it("retains effects and sends the complete collage to all four downloads and print", async () => {
+    await button("Look");
     await click(".preset:nth-child(2)");
     expect(comp().effects.film).toBe(0.65);
 
+    await button("Continue");
     const select = host.querySelector<HTMLSelectElement>(
       '[aria-label="Download format"]',
     )!;
@@ -289,6 +312,7 @@ describe("existing editor regression", () => {
           }),
       );
 
+    await click(".add-photos");
     await chooseFiles(["older.heic"]);
     await chooseFiles(["newer.svg"]);
     expect(mocks.importAsset).toHaveBeenCalledTimes(1);
@@ -300,19 +324,20 @@ describe("existing editor regression", () => {
     await act(async () => second(fixture("newer.svg")));
     await flush();
 
-    expect(comp().layers).toHaveLength(2);
+    expect(comp().layers).toHaveLength(3);
     expect(Object.values(mocks.current!.assets).map((a) => a.name)).toEqual([
+      "Coastal photo",
       "older.heic",
       "newer.svg",
     ]);
 
     await click('[aria-label="Undo"]');
-    expect(comp().layers).toHaveLength(1);
+    expect(comp().layers).toHaveLength(2);
 
     expect(URL.revokeObjectURL).not.toHaveBeenCalledWith("blob:newer.svg");
 
     await click('[aria-label="Redo"]');
-    expect(comp().layers).toHaveLength(2);
+    expect(comp().layers).toHaveLength(3);
   });
 
   it("keeps successful mixed batch imports and restores every original photo on reset", async () => {
@@ -321,13 +346,16 @@ describe("existing editor regression", () => {
       .mockRejectedValueOnce(new Error("Cannot decode"))
       .mockResolvedValueOnce(fixture("b.svg"));
 
+    await click(".wordmark");
     await chooseFiles(["a.jpg", "bad.heic", "b.svg"]);
+    await button("Start new Polaroid");
     await flush();
 
     expect(comp().layers).toHaveLength(2);
     expect(host.textContent).toContain("bad.heic");
 
-    await click('[title="Tape (T)"]');
+    await button("Decorate");
+    await click('[title="Tape"]');
     await click(".reset-button");
     expect(comp().layers).toHaveLength(2);
     expect(comp().layers.every((l) => l.kind === "photo")).toBe(true);
@@ -335,13 +363,13 @@ describe("existing editor regression", () => {
 
   it("creates nine tiles and keeps single duplication separate", async () => {
     await click('[aria-label="Select photograph"]');
-    await click('[title="Repeat (D)"]');
+    await click('[title="Repeat"]');
     await click(".tool-target-controls .secondary-button");
 
     expect(comp().layers).toHaveLength(9);
     expect(host.querySelector('[aria-label="Grid width"]')).not.toBeNull();
 
-    await click('[title="Move (V)"]');
+    await click('[title="Move"]');
     await click('[aria-label="Duplicate selected piece"]');
     expect(comp().layers).toHaveLength(10);
 
@@ -352,9 +380,7 @@ describe("existing editor regression", () => {
   });
 
   it("keeps all three STL links and accessible dialogs", async () => {
-    await click("nav button");
-
-    expect(host.querySelector("[role=dialog]")).not.toBeNull();
+    await button("Continue");
 
     const links = [
       ...host.querySelectorAll<HTMLAnchorElement>("a[download]"),
@@ -367,10 +393,6 @@ describe("existing editor regression", () => {
 
       "/frames/polaroid%20frame.stl",
     ]);
-
-    await click('[aria-label="Close dialog"]');
-
-    expect(host.querySelector("[role=dialog]")).toBeNull();
   });
 
   it("stops the camera stream on close and handles permission failure", async () => {
@@ -383,6 +405,7 @@ describe("existing editor regression", () => {
       value: { getUserMedia },
     });
 
+    if (!host.querySelector(".camera-button")) await click(".wordmark");
     await click(".camera-button");
 
     expect(getUserMedia).toHaveBeenCalledOnce();
@@ -393,10 +416,217 @@ describe("existing editor regression", () => {
 
     getUserMedia.mockRejectedValueOnce(new Error("Permission denied"));
 
+    if (!host.querySelector(".camera-button")) await click(".wordmark");
     await click(".camera-button");
 
     expect(host.textContent).toContain("permission was declined");
 
     await click('[aria-label="Close camera"]');
+  });
+});
+
+describe("photo-first navigation and sessions", () => {
+  it("starts without editing controls, and guards direct Edit and Finish routes", async () => {
+    expect(host.textContent).toContain("Create a Polaroid");
+    expect(host.querySelector(".editor-controls")).toBeNull();
+    expect(host.querySelectorAll(".example-card")).toHaveLength(3);
+    for (const path of ["/edit", "/finish"]) {
+      await act(async () => {
+        window.history.pushState(null, "", path);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+      await flush();
+      expect(window.location.pathname).toBe("/");
+      expect(host.textContent).toContain("Choose a photo or example to start");
+    }
+  });
+
+  it.each(examples)(
+    "opens $title with precisely the thumbnail composition and a reversible edit",
+    async (example) => {
+      await click(`[aria-label="Try ${example.title} example"]`);
+      expect(window.location.pathname).toBe("/edit");
+      expect(comp()).toEqual(example.composition);
+      await click('[aria-label="Duplicate selected piece"]');
+      expect(comp().layers.length).toBe(example.composition.layers.length + 1);
+      await button("Undo");
+      expect(comp()).toEqual(example.composition);
+    },
+  );
+
+  it("preserves selection, caption drafts, composition and history through screens and browser Back/Forward", async () => {
+    await startClassic();
+    await button("Decorate");
+    await button("Add tape");
+    const selected = mocks.current!.selected;
+    const next = { ...comp(), caption: "Coast, 2026" };
+    await act(async () => mocks.current!.onChange(next, false));
+    await button("Look"); // Category changes finish a pending edit.
+    await button("Continue");
+    expect(window.location.pathname).toBe("/finish");
+    expect(host.querySelector(".editor-controls")).toBeNull();
+    await act(async () => window.history.back());
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    await flush();
+    expect(window.location.pathname).toBe("/edit");
+    expect(comp()).toEqual(next);
+    expect(mocks.current!.selected).toBe(selected);
+    await button("Undo");
+    expect(comp().caption).toBe("");
+    await button("Redo");
+    expect(comp().caption).toBe("Coast, 2026");
+    await act(async () => window.history.forward());
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    await flush();
+    expect(window.location.pathname).toBe("/finish");
+    await click('a[href="/edit"]');
+    expect(comp()).toEqual(next);
+  });
+
+  it("confirms replacement, preserves work on failure, then releases old assets after success", async () => {
+    mocks.importAsset.mockResolvedValueOnce(fixture("first.jpg"));
+    await chooseFiles(["first.jpg"]);
+    expect(comp().caption).toBe("");
+    await button("Decorate");
+    await button("Add tape");
+    const before = structuredClone(comp());
+    await click(".wordmark");
+    expect(host.textContent).toContain("Resume editing");
+    await click('[aria-label="Try 3×3 grid example"]');
+    expect(host.querySelector('[role="dialog"]')).not.toBeNull();
+    await act(async () =>
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      ),
+    );
+    await flush();
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
+    mocks.importAsset.mockRejectedValueOnce(new Error("Cannot decode"));
+    await chooseFiles(["bad.heic"]);
+    await button("Start new Polaroid");
+    expect(window.location.pathname).toBe("/");
+    expect(host.textContent).toContain("Cannot decode");
+    await click('a[href="/edit"]');
+    expect(comp()).toEqual(before);
+    expect(URL.revokeObjectURL).not.toHaveBeenCalledWith("blob:first.jpg");
+    await click(".wordmark");
+    mocks.importAsset.mockResolvedValueOnce(fixture("next.png"));
+    await chooseFiles(["next.png"]);
+    await button("Start new Polaroid");
+    expect(comp().layers).toHaveLength(1);
+    expect(comp().caption).toBe("");
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:first.jpg");
+    expect(
+      host.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!.disabled,
+    ).toBe(true);
+  });
+
+  it("ignores stale new-session imports and keeps the most recent choice", async () => {
+    let complete!: (asset: Asset) => void;
+    mocks.importAsset.mockImplementationOnce(
+      () =>
+        new Promise<Asset>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    mocks.importAsset.mockResolvedValueOnce(fixture("new.png"));
+    await chooseFiles(["slow.heic"]);
+    await chooseFiles(["new.png"]);
+    await act(async () => complete(fixture("slow.heic")));
+    await flush();
+    expect(Object.values(mocks.current!.assets).map((a) => a.name)).toEqual([
+      "new.png",
+    ]);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:slow.heic");
+  });
+
+  it("releases repeat grouping on category changes and removes editor shortcuts", async () => {
+    await startClassic();
+    await button("Repeat");
+    await button("Repeat 3 × 3");
+    expect(host.querySelector('[aria-label="Grid width"]')).not.toBeNull();
+    await button("Decorate");
+    await button("Arrange");
+    expect(host.querySelector('[aria-label="Grid width"]')).toBeNull();
+    const before = structuredClone(comp());
+    for (const key of [
+      "v",
+      "c",
+      "x",
+      "d",
+      "t",
+      "p",
+      "e",
+      "Delete",
+      "Backspace",
+      "ArrowRight",
+      "Escape",
+    ]) {
+      await act(async () =>
+        window.dispatchEvent(
+          new KeyboardEvent("keydown", { key, bubbles: true }),
+        ),
+      );
+    }
+    await act(async () =>
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "z",
+          ctrlKey: true,
+          bubbles: true,
+        }),
+      ),
+    );
+    expect(comp()).toEqual(before);
+    expect(host.querySelector("kbd")).toBeNull();
+    expect(
+      host
+        .querySelector<HTMLButtonElement>('[title="Move"]')!
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    await button("Undo");
+    expect(comp().layers).toHaveLength(1);
+  });
+
+  it("enters Edit after the camera countdown and stops the capture stream", async () => {
+    const stop = vi.fn();
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: vi
+          .fn()
+          .mockResolvedValue({ getTracks: () => [{ stop }] }),
+      },
+    });
+    mocks.importAsset.mockResolvedValueOnce(fixture("camera-photo.png"));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: () => {},
+      translate: () => {},
+      scale: () => {},
+    } as never);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
+      (callback) => callback(new Blob(["photo"], { type: "image/png" })),
+    );
+    await button("Use camera");
+    await act(async () =>
+      host
+        .querySelector("video")!
+        .dispatchEvent(new Event("loadeddata", { bubbles: true })),
+    );
+    vi.useFakeTimers();
+    try {
+      const capture = [...host.querySelectorAll("button")].find(
+        (b) => b.textContent?.trim() === "Capture",
+      )!;
+      await act(async () => capture.click());
+      expect(host.textContent).toContain("3");
+      await act(async () => vi.advanceTimersByTimeAsync(3000));
+      expect(window.location.pathname).toBe("/edit");
+      expect(comp().layers[0].name).toBe("camera-photo.png");
+      expect(comp().caption).toBe("");
+      expect(stop).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
