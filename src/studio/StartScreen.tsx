@@ -1,110 +1,51 @@
 import { useEffect, useState } from "react";
-import { Camera, Upload, ArrowRight } from "lucide-react";
+import { Camera, Upload, ArrowRight, BookOpen } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { examples, loadSample, type ExampleDefinition } from "./examples";
 import type { Assets } from "../model";
 import CompositionPreview from "./CompositionPreview";
+import DemoCamera from "./DemoCamera";
 
-export default function StartScreen({
-  busy,
-  hasSession,
-  onUpload,
-  onCamera,
-  onExample,
-}: {
-  busy: boolean;
-  hasSession: boolean;
-  onUpload: () => void;
-  onCamera: () => void;
-  onExample: (example: ExampleDefinition) => void;
+export default function StartScreen({busy, hasSession, onUpload, onCamera, onExample, onDemoPhoto}: {
+  busy: boolean; hasSession: boolean; onUpload: () => void; onCamera: () => void;
+  onExample: (example: ExampleDefinition) => void; onDemoPhoto:(file:File)=>void;
 }) {
   const [assets, setAssets] = useState<Assets | null>(null);
   const location = useLocation();
   useEffect(() => {
     let cancelled = false;
-    void loadSample()
-      .then((sample) => {
-        if (!cancelled) setAssets({ sample });
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    void loadSample().then(sample => {if (!cancelled) setAssets({sample});}).catch(() => {});
+    return () => {cancelled = true;};
   }, []);
-  return (
-    <main className="start-screen">
-      {location.state?.notice && (
-        <p className="notice" role="status">
-          {location.state.notice}
-        </p>
-      )}
-      <div className="start-heading">
-        <h1 tabIndex={-1}>Create a Polaroid</h1>
-        <p>Start with a photo. Make it your own.</p>
+  return <main className="start-screen">
+    {location.state?.notice && <p className="notice" role="status">{location.state.notice}</p>}
+    <section className="camera-intro" aria-label="Create a Polaroid" aria-busy={busy}>
+      <div className="intro-copy">
+        <h1 tabIndex={-1}>Keep a little <em>of the moment.</em></h1>
+        <p>Make an instant photo, leave a few words, and keep it somewhere good.</p>
       </div>
-      <section
-        className="upload-area"
-        aria-label="Add your photos"
-        aria-busy={busy}
-      >
-        <Upload size={28} strokeWidth={1.5} aria-hidden="true" />
-        <h2>{busy ? "Preparing your photos…" : "Drop your photos here"}</h2>
-        <button className="primary-button" disabled={busy} onClick={onUpload}>
-          Choose photos <ArrowRight size={17} />
-        </button>
-        <p className="formats">JPG / JPEG, PNG, HEIC / HEIF and SVG</p>
-        <button
-          className="camera-button text-button"
-          disabled={busy}
-          onClick={onCamera}
-        >
-          <Camera size={17} /> Use camera
-        </button>
-      </section>
-      <p className="privacy-note">
-        Your photos stay in this browser. Refreshing clears your work.
-      </p>
-      {hasSession && (
-        <Link className="resume-link" to="/edit">
-          Resume editing <ArrowRight size={16} />
-        </Link>
-      )}
-      <section className="examples" aria-labelledby="examples-title">
-        <div className="section-heading">
-          <h2 id="examples-title">Or try an example</h2>
-          <p>Everything here is editable.</p>
+      <div className="start-actions">
+          <button className="primary-button" aria-label="Take a photo" disabled={busy} onClick={onCamera}><Camera size={19}/> Take a photo</button>
+          <button className="text-button upload-secondary" disabled={busy} onClick={onUpload}><Upload size={17}/>{busy ? "Opening photos…" : "Upload photos"}</button>
         </div>
-        <div className="example-grid">
-          {examples.map((example) => (
-            <article className="example-card" key={example.id}>
-              <div className="example-art">
-                {assets ? (
-                  <CompositionPreview
-                    assets={assets}
-                    composition={example.composition}
-                    label={`${example.title} example Polaroid`}
-                    scale={0.55}
-                  />
-                ) : (
-                  <img src="/sample-coast.png" alt="Coastal photo" />
-                )}
-              </div>
-              <div className="example-description">
-                <h3>{example.title}</h3>
-                <p>{example.description}</p>
-                <button
-                  className="text-button"
-                  disabled={busy}
-                  aria-label={`Try ${example.title} example`}
-                  onClick={() => onExample(example)}
-                >
-                  Try example <ArrowRight size={16} />
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-    </main>
-  );
+      <DemoCamera busy={busy} onDevelop={onDemoPhoto}/>
+      <div className="camera-start">
+        <p className="import-hint">Or drop photos here. JPG, PNG, HEIC and SVG.</p>
+        <p className="local-note">Made on your device. Your photos stay yours.</p>
+        {hasSession && <Link className="resume-link" to="/edit">Continue your Polaroid <ArrowRight size={16}/></Link>}
+      </div>
+    </section>
+    <section className="examples" aria-labelledby="examples-title">
+      <div className="section-heading"><div><h2 id="examples-title">A few ways to make it yours.</h2><p>Open an example and move things around.</p></div></div>
+      <div className="example-grid">
+        {examples.map(example => <article className="example-card" key={example.id}>
+          <button className="example-art" disabled={busy} onClick={() => onExample(example)} aria-label={`Try ${example.title} example`}>
+            {assets ? <CompositionPreview assets={assets} composition={example.composition} label={`${example.title} example Polaroid`} scale={.55}/> : <img src="/sample-flash.webp" alt="Vintage party photo"/>}
+          </button>
+          <div className="example-description"><h3>{example.title}</h3><p>{example.description}</p></div>
+        </article>)}
+        <div className="scrapbook-invite"><BookOpen size={28} strokeWidth={1.3}/><h3>More than one<br/>good moment?</h3><p>Make a scrapbook page or a classic photo strip.</p><Link to="/scrapbook" className="text-button">Open scrapbook <ArrowRight size={17}/></Link></div>
+      </div>
+    </section>
+  </main>;
 }

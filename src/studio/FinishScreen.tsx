@@ -1,16 +1,16 @@
-import { ArrowLeft, Download, Printer } from "lucide-react";
+import { ArrowLeft, Download, Printer, BookOpen } from "lucide-react";
 import { Link } from "react-router";
 import type { Studio } from "./useStudioSession";
 import type { ExportFormat } from "../render";
-import CompositionPreview from "./CompositionPreview";
+import FinishPosition from "./FinishPosition";
 
-export default function FinishScreen({ studio: s }: { studio: Studio }) {
+export default function FinishScreen({ studio: s, onScrapbook, scrapbookBusy, updatingScrapbook = false }: { studio: Studio; onScrapbook: () => void; scrapbookBusy: boolean; updatingScrapbook?: boolean }) {
   return (
     <main className="finish-screen">
       <div className="page-heading">
         <div>
           <h1 tabIndex={-1}>Your Polaroid</h1>
-          <p>Ready to download or print.</p>
+          <p>Drag your photo to adjust it. Download when it feels right.</p>
         </div>
         <Link to="/edit" className="text-button">
           <ArrowLeft size={16} /> Back to editing
@@ -18,15 +18,11 @@ export default function FinishScreen({ studio: s }: { studio: Studio }) {
       </div>
       <div className="finish-layout">
         <div className="finished-art">
-          <CompositionPreview
-            assets={s.assets}
-            composition={s.composition}
-            label="Finished Polaroid"
-            scale={1.5}
-          />
+          <FinishPosition studio={s}/>
         </div>
         <section className="finish-options" aria-label="Save your Polaroid">
-          <h2>Save your Polaroid</h2>
+          <h2>Keep this moment.</h2>
+          <button className="secondary-button" disabled={scrapbookBusy || s.busy} onClick={onScrapbook}><BookOpen size={17}/> {updatingScrapbook ? "Update scrapbook photo" : "Add to scrapbook"}</button>
           <label className="field">
             File format
             <select
@@ -60,38 +56,61 @@ export default function FinishScreen({ studio: s }: { studio: Studio }) {
             88 × 107 mm. Choose <strong>Actual size / 100% scale</strong> in
             your print settings.
           </p>
-          <details className="printable-frames">
-            <summary>Printable frames</summary>
-            <p>Download a 3D-printable frame for your photo.</p>
+          <a className="frames-jump" href="#printable-frames">Explore 3D-printable frames <span aria-hidden="true">↓</span></a>
+        </section>
+      </div>
+      <section id="printable-frames" className="printable-frames" aria-labelledby="printable-frames-title" tabIndex={-1}>
+        <div className="frames-intro">
+
+          <h2 id="printable-frames-title">Give your Polaroid a home.</h2>
+          <p>Free 3D-printable frames for the memories you want to keep close.</p>
+          <p className="field-hint">Download an STL for your 3D printer. Check each model’s opening before sizing your photo.</p>
+        </div>
+        <div className="frame-models">
+          <article className="frame-model">
+            <span className="frame-model-number" aria-hidden="true">01</span>
             <h3>Magnetic frame</h3>
-            <a download href="/frames/frame-polaroid-part1.stl">
+            <p>A two-part frame that holds your photo between magnetic halves.</p>
+            <div className="frame-downloads">
+            <a className="secondary-button" download href="/frames/frame-polaroid-part1.stl">
+              <Download size={16} aria-hidden="true"/>
               Download part 1 · STL
             </a>
-            <a download href="/frames/frame-polaroid-part2.stl">
+            <a className="secondary-button" download href="/frames/frame-polaroid-part2.stl">
+              <Download size={16} aria-hidden="true"/>
               Download part 2 · STL
             </a>
+            </div>
             <a
+              className="frame-source"
               target="_blank"
               rel="noreferrer"
               href="https://www.printables.com/model/149884-magnetic-photo-frame-polaroidinstax-style/files"
             >
-              Model and printing details ↗
+              Magnetic frame on Printables ↗
             </a>
+          </article>
+          <article className="frame-model">
+            <span className="frame-model-number" aria-hidden="true">02</span>
             <h3>Desk frame</h3>
-            <a download href="/frames/polaroid%20frame.stl">
+            <p>A freestanding frame for a favorite photo on your desk or shelf.</p>
+            <div className="frame-downloads">
+            <a className="secondary-button" download href="/frames/polaroid%20frame.stl">
+              <Download size={16} aria-hidden="true"/>
               Download desk frame · STL
             </a>
+            </div>
             <a
+              className="frame-source"
               target="_blank"
               rel="noreferrer"
               href="https://www.printables.com/model/155872-polaroid-frame/files"
             >
-              Model and printing details ↗
+              Desk frame on Printables ↗
             </a>
-            <p>Check each model’s opening before sizing your photo.</p>
-          </details>
-        </section>
-      </div>
+          </article>
+        </div>
+      </section>
     </main>
   );
 }

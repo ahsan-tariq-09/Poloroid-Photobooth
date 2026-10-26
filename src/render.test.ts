@@ -7,7 +7,7 @@ import {
   initialComposition,
   photoLayer,
   addDecoration,
-  bounds,
+  addText,
   cutLayer,
   FRAME,
   type Asset,
@@ -51,7 +51,43 @@ const at = (output: HTMLCanvasElement, x: number, y: number) => [
   ...output.getContext("2d")!.getImageData(x, y, 1, 1).data,
 ];
 describe("real Polaroid rendering and export", () => {
-  it("keeps closed scissor holes and outside-frame cutouts identical in PNG and reopened SVG", async () => {
+  it("preserves both edges and the proportions of a wide imported photo", async () => {
+    const asset = await makeAsset(), c = initialComposition();
+    c.layers = [photoLayer("sample", "Landscape", 0, asset)];
+    expect(c.layers[0].width / c.layers[0].height).toBeCloseTo(1.5);
+    const out = await renderComposition(canvas(1,1), {sample:asset}, c, FRAME, 1);
+    expect(at(out,35,200)).toEqual([40,108,121,255]);
+    expect(at(out,485,200)).toEqual([228,121,50,255]);
+    expect(at(out,260,35)).toEqual([255,249,233,255]);
+  });
+  it("clips a download to the frame even when a rotated photograph is far outside it", async () => {
+    const asset = await makeAsset(), c = initialComposition();
+    Object.assign(c.layers[0], {x: -180, y: -100, width: 900, height: 900, rotation: 23});
+    const svg = await serializeSvg({sample: asset}, c);
+    expect(svg).toContain('viewBox="40 35 520 632.2727272727273"');
+    expect(svg).toContain('width="88mm" height="107mm"');
+    const image = await loadImage(new Resvg(svg, {fitTo: {mode: "width", value: 1560}}).render().asPng());
+    expect(image.width).toBe(1560);
+    expect(image.height).toBe(1897);
+    const output = createCanvas(image.width, image.height); output.getContext("2d").drawImage(image, 0, 0);
+    expect([...output.getContext("2d").getImageData(5,5,1,1).data]).toEqual([255,249,233,255]);
+  });
+  it("keeps movable colored text identical between PNG and standalone SVG", async () => {
+    const asset = await makeAsset(), c = addText(initialComposition());
+    const text = c.layers.at(-1)!;
+    Object.assign(text, {text: "A postcard\nfrom the coast", fontSize: 36, bold: true, italic: true, color: "#bc3f25", rotation: -12, x: 35});
+    Object.assign(c, {caption: "Coast, October", captionSize: 48, captionBold: true, captionItalic: true});
+    const region = FRAME, output = await renderComposition(canvas(1,1), {sample:asset}, c, region, 2);
+    const svg = await serializeSvg({sample:asset}, c);
+    const reopened = await loadImage(new Resvg(svg, {fitTo:{mode:"width",value:output.width}}).render().asPng());
+    const image = createCanvas(output.width, output.height); image.getContext("2d").drawImage(reopened,0,0);
+    const a = output.getContext("2d")!.getImageData(0,0,output.width,output.height).data;
+    const b = image.getContext("2d").getImageData(0,0,output.width,output.height).data;
+    expect(a.reduce((sum,n,i)=>sum+Math.abs(n-b[i]),0)/a.length).toBeLessThan(2);
+    expect(svg).not.toContain("<text");
+    expect(c.layers.at(-1)!.text).toContain("postcard");
+  });
+  it("keeps closed scissor holes and clipped cutouts identical in PNG and reopened SVG", async () => {
     const asset = await makeAsset();
     let c = initialComposition();
     c = cutLayer(
@@ -68,7 +104,7 @@ describe("real Polaroid rendering and export", () => {
     const cutout = c.layers.find((l) => l.mask![0].length === 1)!;
     cutout.x -= 210;
     cutout.rotation = -19;
-    const region = bounds(c),
+    const region = FRAME,
       out = await renderComposition(
         canvas(1, 1),
         { sample: asset },
@@ -95,7 +131,7 @@ describe("real Polaroid rendering and export", () => {
       expected.reduce((sum, v, i) => sum + Math.abs(v - actual[i]), 0) /
         expected.length,
     ).toBeLessThan(2);
-    expect(region.x).toBeLessThan(FRAME.x);
+    expect(region).toEqual(FRAME);
   });
   it("renders only the supplied caption using the interface font stack", () => {
     const fillText = vi.fn();
@@ -111,6 +147,11 @@ describe("real Polaroid rendering and export", () => {
       '25px "Helvetica Neue", Helvetica, Arial, sans-serif',
     );
   });
+  it("draws the requested caption size, weight and style", () => {
+    const ctx = {fillText: vi.fn()} as unknown as CanvasRenderingContext2D;
+    drawCaption(ctx, "Styled caption", "studio", {fontSize: 36, bold: true, italic: true});
+    expect(ctx.font).toBe('italic 700 36px "Helvetica Neue", Helvetica, Arial, sans-serif');
+  });
   it("renders the actual sample as a complete Polaroid", async () => {
     const image = await loadImage("public/sample-coast.png");
     const asset = {
@@ -125,7 +166,7 @@ describe("real Polaroid rendering and export", () => {
       canvas(1, 1),
       { sample: asset },
       composition,
-      bounds(composition),
+      FRAME,
       3,
     );
     mkdirSync(".sites-runtime/qa", { recursive: true });
@@ -141,7 +182,7 @@ describe("real Polaroid rendering and export", () => {
   it("exports the complete frame with a wider caption area", async () => {
     const asset = await makeAsset(),
       c = initialComposition(),
-      region = bounds(c);
+      region = FRAME;
     const output = await renderComposition(
       canvas(1, 1),
       { sample: asset },
@@ -150,7 +191,7 @@ describe("real Polaroid rendering and export", () => {
       3,
     );
     expect(output.width).toBe(1560);
-    expect(output.height).toBe(Math.ceil(FRAME.height) * 3);
+    expect(output.height).toBe(Math.ceil(FRAME.height * 3));
     expect(at(output, 4, 4)).toEqual([255, 249, 233, 255]);
     expect(at(output, 750, 1750)).toEqual([255, 249, 233, 255]);
     expect(at(output, 350, 300)[0]).toBe(40);
@@ -160,7 +201,7 @@ describe("real Polaroid rendering and export", () => {
     const asset = await makeAsset(),
       composition = initialComposition(),
       before = structuredClone(composition),
-      area = bounds(composition);
+      area = FRAME;
     const original = await renderComposition(
       canvas(1, 1),
       { sample: asset },
@@ -200,7 +241,7 @@ describe("real Polaroid rendering and export", () => {
     );
     expect(neutral.toDataURL()).toBe(pixels);
   });
-  it("reopens the SVG entirely from embedded assets and matches PNG geometry with effects and overflow", async () => {
+  it("reopens the SVG entirely from embedded assets and matches PNG geometry with effects and clipped overflow", async () => {
     const asset = await makeAsset();
     let c = initialComposition();
     c = cutLayer(
@@ -221,7 +262,7 @@ describe("real Polaroid rendering and export", () => {
     expect(svg).not.toMatch(/href="https?:/);
     expect(svg).toContain("data:image/png;base64,");
     const image = await loadImage(
-      new Resvg(svg, { fitTo: { mode: "width", value: bounds(c).width * 3 } })
+      new Resvg(svg, { fitTo: { mode: "width", value: FRAME.width * 3 } })
         .render()
         .asPng(),
     );
@@ -229,7 +270,7 @@ describe("real Polaroid rendering and export", () => {
       canvas(1, 1),
       { sample: asset },
       c,
-      bounds(c),
+      FRAME,
       3,
     );
     expect(image.width).toBe(output.width);
@@ -281,15 +322,13 @@ describe("real Polaroid rendering and export", () => {
     );
     c.layers.at(-1)!.x += 25;
     const assets = { sample: a, second: b },
-      region = bounds(c);
+      region = FRAME;
     const out = await renderComposition(canvas(1, 1), assets, c, region, 3);
     // A photo positioned under the left border cannot cover the locked frame.
     expect(at(out, (50 - region.x) * 3, (150 - region.y) * 3)).toEqual([
       255, 249, 233, 255,
     ]);
-    expect(at(out, (25 - region.x) * 3, (150 - region.y) * 3)).toEqual([
-      40, 108, 121, 255,
-    ]);
+    expect(out.width).toBe(1560);
     const svg = await serializeSvg(assets, c);
     const reopened = new Resvg(svg, {
       fitTo: { mode: "width", value: out.width },
@@ -331,13 +370,13 @@ describe("real Polaroid rendering and export", () => {
     );
     const image = await loadImage(
       new Resvg(svg, {
-        fitTo: { mode: "width", value: bounds(composition).width * 3 },
+        fitTo: { mode: "width", value: FRAME.width * 3 },
       })
         .render()
         .asPng(),
     );
     expect(image.width).toBe(1560);
-    expect(image.height).toBe(Math.ceil(FRAME.height) * 3);
+    expect(image.height).toBe(Math.ceil(FRAME.height * 3));
     const reopened = createCanvas(image.width, image.height);
     reopened.getContext("2d").drawImage(image, 0, 0);
     expect(

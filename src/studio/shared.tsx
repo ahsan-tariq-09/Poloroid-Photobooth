@@ -13,6 +13,7 @@ export function Range({
   suffix = "%",
   onChange,
   onFinish,
+  onStart,
   disabled = false,
 }: {
   label: string;
@@ -23,6 +24,7 @@ export function Range({
   suffix?: string;
   onChange: (v: number) => void;
   onFinish: () => void;
+  onStart?: () => void;
   disabled?: boolean;
 }) {
   return (
@@ -48,6 +50,8 @@ export function Range({
           } as React.CSSProperties
         }
         onChange={(e) => onChange(Number(e.target.value))}
+        onPointerDown={onStart}
+        onKeyDown={(e) => { if (!e.repeat && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(e.key)) onStart?.(); }}
         onPointerUp={onFinish}
         onPointerCancel={onFinish}
         onKeyUp={onFinish}
@@ -115,13 +119,13 @@ export function Dialog({
         ref={ref}
         tabIndex={-1}
         className="info-modal"
-        initial={enabled ? { y: 28, scale: 0.96 } : false}
+        initial={enabled ? { y: 12, scale: 0.96 } : false}
         animate={enabled ? "visible" : "still"}
         variants={{
           visible: {
             y: 0,
             scale: 1,
-            transition: { type: "spring", stiffness: 260, damping: 26 },
+            transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] },
           },
           still: { y: 0, scale: 1, transition: { duration: 0 } },
         }}
@@ -151,12 +155,14 @@ export function PresetThumbnail({
   crop,
   film,
   copier,
+  grayscale = 0,
 }: {
   asset: Asset | null;
   composition: Composition;
   crop: typeof DEFAULT_CROP;
   film: number;
   copier: number;
+  grayscale?: number;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const signature = JSON.stringify([
@@ -164,6 +170,7 @@ export function PresetThumbnail({
     composition.effects.seed,
     film,
     copier,
+    grayscale,
   ]);
   useEffect(() => {
     let disposed = false;
@@ -172,7 +179,7 @@ export function PresetThumbnail({
       asset,
       {
         crop,
-        effects: { film, copier, seed: composition.effects.seed },
+        effects: { film, copier, grayscale, seed: composition.effects.seed },
       },
       0.2,
     )

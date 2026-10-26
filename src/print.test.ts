@@ -48,7 +48,7 @@ it("waits for the artwork and prints an 88 by 107 mm frame, cleaning up after pr
     },
   };
   const pending = printComposition(assets, initialComposition());
-  for (let i = 0; i < 8; i++) await Promise.resolve();
+  await vi.waitFor(() => expect(document.querySelector(".print-polaroid")).not.toBeNull());
   expect(print).not.toHaveBeenCalled();
   const frame = document.querySelector<HTMLElement>(".print-polaroid")!;
   expect(frame.style.width).toBe("88mm");

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { bounds, type Assets, type Composition } from "../model";
+import { FRAME, type Assets, type Composition } from "../model";
 import { renderComposition } from "../render";
 
 // Render into an isolated canvas first, so a slow previous render cannot overwrite a new one.
@@ -16,7 +16,7 @@ export default function CompositionPreview({
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState(false);
-  const region = bounds(composition);
+  const region = FRAME;
   useEffect(() => {
     let cancelled = false;
     setError(false);
@@ -25,7 +25,7 @@ export default function CompositionPreview({
       offscreen,
       assets,
       composition,
-      bounds(composition),
+      FRAME,
       scale,
     )
       .then(() => {

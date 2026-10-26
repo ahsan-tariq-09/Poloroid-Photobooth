@@ -42,7 +42,9 @@
   stroke-width: 1.5;
   pointer-events: none;
   cursor: nwse-resize;
+  vector-effect: non-scaling-stroke;
 }
+.handle-leader, .rotation-stem { stroke: #e7522e; stroke-width: 1.5; vector-effect: non-scaling-stroke; pointer-events: none; }
 .cut-guide {
   stroke: #e7522e;
   stroke-width: 2;

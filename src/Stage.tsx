@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { animate, motion, type AnimationPlaybackControls } from "motion/react";
 import { paintComposition, prepareTextures, type Textures } from "./render";
+import { loadCompositionFonts } from "./fonts";
+import { pieceHandles } from "./handles";
 import {
   WORKSPACE,
   clone,
@@ -20,6 +22,8 @@ import {
   pointerInComposition,
   type Presentation,
 } from "./presentation";
+
+const arrowDirections: Record<string, Point> = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]};
 
 export function resizeBox(
   layer: Layer,
@@ -53,6 +57,7 @@ type Gesture = {
   mode: string;
   corner: string;
   points: Point[];
+  handleOffset: {x: number; y: number};
 };
 export default function Stage({
   assets,
@@ -95,6 +100,20 @@ export default function Stage({
       development: enabled ? 0 : 1,
       layers: {},
     });
+  const [screenScale, setScreenScale] = useState(1);
+  useEffect(() => {
+    const element = canvas.current?.parentElement;
+    if (!element) return;
+    const measure = () => setScreenScale(element.getBoundingClientRect().width / WORKSPACE.width || 1);
+    measure();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const presentationRef = useRef(presentation),
     controllers = useRef(new Map<string, AnimationPlaybackControls>());
   const [box, setBox] = useState<Layer | null>(null),
@@ -105,6 +124,9 @@ export default function Stage({
     seenAssets = useRef(new Set<string>());
   const signature = JSON.stringify([
     composition.effects,
+    composition.captionFont,
+    composition.captionBold, composition.captionItalic,
+    composition.layers.filter(l => l.kind === "text").map(l => [l.id, l.fontId, l.text, l.bold, l.italic]),
     composition.layers
       .filter((l) => l.kind === "photo")
       .map((l) => [l.id, l.assetId, l.crop]),
@@ -152,7 +174,7 @@ export default function Stage({
     const ticket = ++version.current;
     void Promise.all([
       prepareTextures(assets, composition, 1.5),
-      document.fonts.ready,
+      loadCompositionFonts(composition),
     ])
       .then(([textures]) => {
         if (ticket !== version.current) return;
@@ -161,7 +183,7 @@ export default function Stage({
         if (first.current) {
           first.current = false;
           if (enabled)
-            run("develop", 0, 1, 2, (v) =>
+            run("develop", 0, 1, 1.1, (v) =>
               update((p) => ({ ...p, development: v })),
             );
           else update((p) => ({ ...p, development: 1 }));
@@ -192,7 +214,7 @@ export default function Stage({
             },
           }));
           if (developing)
-            run("development-" + l.id, 0, 1, 2, (v) =>
+            run("development-" + l.id, 0, 1, 1.1, (v) =>
               update((p) => ({
                 ...p,
                 layers: {
@@ -252,6 +274,11 @@ export default function Stage({
     [],
   );
   useEffect(() => {
+    const redraw = () => setReady(v => v + 1);
+    document.fonts?.addEventListener?.("loadingdone", redraw);
+    return () => document.fonts?.removeEventListener?.("loadingdone", redraw);
+  }, []);
+  useEffect(() => {
     if (!document.hidden && canvas.current)
       paintComposition(
         canvas.current,
@@ -287,6 +314,7 @@ export default function Stage({
   );
   const target = box || grid || poses.find((l) => l.id === selected),
     active = gesture.current;
+  const handles = target ? pieceHandles(target, screenScale) : null;
   const point = (event: MouseEvent<SVGSVGElement>) => {
     const matrix = event.currentTarget.getScreenCTM();
     if (matrix) {
@@ -336,11 +364,11 @@ export default function Stage({
       style={{
         aspectRatio: WORKSPACE.width + "/" + WORKSPACE.height,
       }}
-      initial={enabled ? { y: 65, opacity: 0 } : false}
+      initial={enabled ? { y: 18, opacity: 0 } : false}
       animate={{ y: 0, opacity: 1 }}
       transition={
         enabled
-          ? { type: "spring", stiffness: 130, damping: 20 }
+          ? { duration: 0.4, ease: [0.22, 1, 0.36, 1] }
           : { duration: 0 }
       }
     >
@@ -357,7 +385,19 @@ export default function Stage({
           " " +
           WORKSPACE.height
         }
-        aria-label="Polaroid editor. Select pieces, drag handles to resize, or draw a cut."
+        aria-label="Polaroid editor. Select pieces, drag handles to resize, or draw a cut. Arrow keys move the selected piece; hold Shift to move 10 pixels."
+        onKeyDown={e => {
+          if (menuOpen || gesture.current || e.altKey || e.ctrlKey || e.metaKey) return;
+          const direction = arrowDirections[e.key];
+          if (!direction) return;
+          const stored = grid && tool === "repeat" ? grid : composition.layers.find(l => l.id === selected);
+          if (!stored) return;
+          e.preventDefault();
+          const amount = e.shiftKey ? 10 : 1;
+          const moved = {...stored, x: stored.x + direction[0] * amount, y: stored.y + direction[1] * amount};
+          if (grid && tool === "repeat") onGrid(moved, true);
+          else {const next = clone(composition); next.layers = next.layers.map(l => l.id === stored.id ? moved : l); onChange(next, true);}
+        }}
         onDragStart={(e) => e.preventDefault()}
         onContextMenu={(e) => {
           finish(true);
@@ -422,6 +462,10 @@ export default function Stage({
             offset: { x: mapped.x - p.x, y: mapped.y - p.y },
             mode,
             corner: handle,
+            handleOffset: handle && handle !== "rotate" ? {
+              x: (handle.includes("e") ? stored.width : 0) - local.x,
+              y: (handle.includes("s") ? stored.height : 0) - local.y,
+            } : {x: 0, y: 0},
             points: [
               cutMode === "freehand" && mode === "cut"
                 ? [
@@ -440,7 +484,8 @@ export default function Stage({
           if (!g || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
           const raw = point(e),
             p = { x: raw.x + g.offset.x, y: raw.y + g.offset.y },
-            local = localPoint(g.layer, p.x, p.y);
+            rawLocal = localPoint(g.layer, p.x, p.y),
+            local = {x: rawLocal.x + g.handleOffset.x, y: rawLocal.y + g.handleOffset.y};
           if (g.mode === "cut") {
             const value: Point =
               cutMode === "freehand"
@@ -591,49 +636,37 @@ export default function Stage({
                       ? "Tape"
                       : target.name}
             </text>
-            {tool !== "cut" &&
-              (["nw", "ne", "sw", "se"] as const).map((corner, i) => (
-                <g key={corner}>
-                  <rect
-                    x={(i % 2 ? target.width : 0) - 18}
-                    y={(i > 1 ? target.height : 0) - 18}
-                    width="36"
-                    height="36"
-                    data-handle={corner}
+            {tool !== "cut" && handles?.corners.map(corner => (
+                <g key={corner.id}>
+                  <line x1={corner.anchorX} y1={corner.anchorY} x2={corner.x} y2={corner.y} className="handle-leader"/>
+                  <circle
+                    cx={corner.x} cy={corner.y} r={handles.radius}
+                    data-handle={corner.id}
                     className="handle-hit"
-                    aria-label={"Resize " + corner}
+                    aria-label={"Resize " + corner.id}
                   />
-                  <rect
-                    x={(i % 2 ? target.width : 0) - 7}
-                    y={(i > 1 ? target.height : 0) - 7}
-                    width="14"
-                    height="14"
+                  <circle
+                    cx={corner.x} cy={corner.y} r={handles.visualRadius}
                     className="handle"
                     aria-hidden="true"
                   />
                 </g>
               ))}
-            {tool !== "crop" && tool !== "cut" && !grid && (
+            {tool !== "crop" && tool !== "cut" && !grid && handles && (
               <>
                 <line
-                  x1={target.width / 2}
-                  y1="0"
-                  x2={target.width / 2}
-                  y2="-32"
+                  x1={handles.rotate.anchorX} y1={handles.rotate.anchorY}
+                  x2={handles.rotate.x} y2={handles.rotate.y}
                   className="rotation-stem"
                 />
                 <circle
-                  cx={target.width / 2}
-                  cy="-32"
-                  r="20"
+                  cx={handles.rotate.x} cy={handles.rotate.y} r={handles.radius}
                   data-handle="rotate"
                   className="handle-hit rotation-handle"
                   aria-label="Rotate selected piece"
                 />
                 <circle
-                  cx={target.width / 2}
-                  cy="-32"
-                  r="9"
+                  cx={handles.rotate.x} cy={handles.rotate.y} r={handles.visualRadius}
                   className="handle"
                   aria-hidden="true"
                 />

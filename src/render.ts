@@ -1,7 +1,6 @@
 import {
   FRAME,
   PHOTO,
-  bounds,
   paperPoints,
   shape,
   shapePath,
@@ -15,6 +14,8 @@ import {
 } from "./model";
 import { applyEffects } from "./effects";
 import { layerPose, type Presentation } from "./presentation";
+import { fontCss, loadCompositionFonts, type FontStyle } from "./fonts";
+import { assertComposition, assertRenderSize } from "./limits";
 export function canvas(width: number, height: number) {
   const c = document.createElement("canvas");
   c.width = Math.max(1, Math.ceil(width));
@@ -26,7 +27,7 @@ export function cropGeometry(
   asset: Pick<Asset, "width" | "height">,
   crop: Crop,
 ) {
-  const size = Math.min(asset.width, asset.height) / crop.zoom;
+  const size = (crop.original ? Math.max(asset.width, asset.height) : Math.min(asset.width, asset.height)) / crop.zoom;
   return {
     x: (asset.width - size) / 2 - (crop.x * size) / PHOTO.size,
     y: (asset.height - size) / 2 - (crop.y * size) / PHOTO.size,
@@ -124,12 +125,45 @@ export function drawDecoration(ctx: CanvasRenderingContext2D, layer: Layer) {
   }
   ctx.restore();
 }
-export function drawCaption(ctx: CanvasRenderingContext2D, caption: string) {
-  ctx.fillStyle = "#493e30";
-  ctx.font = '25px "Helvetica Neue", Helvetica, Arial, sans-serif';
+export function drawCaption(ctx: CanvasRenderingContext2D, caption: string, fontId?: string, style: FontStyle & {fontSize?: number; color?: string} = {}) {
+  ctx.fillStyle = style.color || "#493e30";
+  ctx.font = fontCss(fontId, style.fontSize ?? 25, style);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(caption, 300, 598, 450);
+}
+export function drawTextLayer(ctx: CanvasRenderingContext2D, layer: Layer) {
+  const text = (layer.text || "").slice(0, 200);
+  if (!text) return;
+  const padding = 4, width = Math.max(1, layer.width - padding * 2);
+  let size = layer.fontSize ?? Math.min(64, layer.height * 0.65), lines: string[] = [];
+  const wrap = () => {
+    ctx.font = fontCss(layer.fontId, size, layer);
+    lines = [];
+    for (const paragraph of text.split("\n")) {
+      let line = "";
+      for (const token of paragraph.match(/\S+|\s+/gu) || []) {
+        if (/^\s+$/u.test(token)) { if (line) line += token; continue; }
+        if (line && ctx.measureText(line + token).width > width) {lines.push(line.trimEnd()); line = "";}
+        // Break an overlong word only when it cannot fit on its own line.
+        for (const char of Array.from(token)) {
+          if (line && ctx.measureText(line + char).width > width) {lines.push(line); line = "";}
+          line += char;
+        }
+      }
+      lines.push(line.trimEnd());
+    }
+  };
+  wrap();
+  // Older compositions retain automatic fitting; an explicit size stays exact.
+  while (layer.fontSize === undefined && size > 4 && lines.length * size * 1.2 > layer.height - padding * 2) {size--; wrap();}
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, layer.width, layer.height); ctx.clip();
+  ctx.fillStyle = layer.color;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const firstBaseline = Math.max(padding + size * .6, layer.height / 2 - (lines.length - 1) / 2 * size * 1.2);
+  lines.forEach((line, i) => ctx.fillText(line, layer.width / 2, firstBaseline + i * size * 1.2, width));
+  ctx.restore();
 }
 
 export async function renderComposition(
@@ -139,6 +173,9 @@ export async function renderComposition(
   region: Rect,
   scale = 1,
 ) {
+  assertComposition(c);
+  assertRenderSize(region, scale);
+  await loadCompositionFonts(c);
   await document.fonts?.ready;
   return paintComposition(
     target,
@@ -164,6 +201,8 @@ export function paintComposition(
   scale = 1,
   presentation?: Presentation,
 ) {
+  assertComposition(c);
+  assertRenderSize(region, scale);
   const width = Math.ceil(region.width * scale),
     height = Math.ceil(region.height * scale);
   if (target.width !== width) target.width = width;
@@ -211,7 +250,8 @@ export function paintComposition(
           layer.height,
         );
       }
-    } else drawDecoration(ctx, layer);
+    } else if (layer.kind === "text") drawTextLayer(ctx, layer);
+    else drawDecoration(ctx, layer);
     ctx.restore();
   };
   c.layers.filter((l) => l.kind === "photo").forEach(draw);
@@ -221,7 +261,7 @@ export function paintComposition(
   ctx.rect(FRAME.x, FRAME.y, FRAME.width, FRAME.height);
   ctx.rect(PHOTO.x, PHOTO.y, PHOTO.size, PHOTO.size);
   ctx.fill("evenodd");
-  drawCaption(ctx, c.caption);
+  drawCaption(ctx, c.caption, c.captionFont, {fontSize: c.captionSize, bold: c.captionBold, italic: c.captionItalic, color: c.captionColor});
   c.layers.filter((l) => l.kind !== "photo").forEach(draw);
   return target;
 }
@@ -248,10 +288,12 @@ function svgData(svg: string) {
   );
 }
 export async function serializeSvg(assets: Assets, c: Composition) {
+  assertComposition(c);
+  await loadCompositionFonts(c);
   await document.fonts?.ready;
-  const region = bounds(c),
+  const region = FRAME,
     photos = await prepareTextures(assets, c, 3),
-    hasEffects = c.effects.film > 0 || c.effects.copier > 0;
+    hasEffects = c.effects.film > 0 || c.effects.copier > 0 || (c.effects.grayscale ?? 0) > 0;
   const photosSvg: string[] = [],
     decorationsSvg: string[] = [];
   c.layers.forEach((l, index) => {
@@ -310,6 +352,10 @@ export async function serializeSvg(assets: Assets, c: Composition) {
           height +
           '" preserveAspectRatio="none"/></g></g>',
       );
+    } else if (l.kind === "text") {
+      const text = canvas(l.width * 3, l.height * 3), ctx = text.getContext("2d")!;
+      ctx.scale(3, 3); drawTextLayer(ctx, l);
+      decorationsSvg.push(`<g transform="${transform}" opacity="${l.opacity}"><image width="${l.width}" height="${l.height}" xlink:href="${text.toDataURL("image/png")}"/></g>`);
     } else {
       const points = paperPoints(l.width, l.height, l.kind === "tape")
         .map((p) => p.join(","))
@@ -349,11 +395,11 @@ export async function serializeSvg(assets: Assets, c: Composition) {
       );
     }
   });
-  const caption = canvas(FRAME.width * 3, 100 * 3),
+  const caption = canvas(FRAME.width * 3, 135 * 3),
     ctx = caption.getContext("2d")!;
   ctx.scale(3, 3);
-  ctx.translate(-40, -575);
-  drawCaption(ctx, c.caption);
+  ctx.translate(-40, -540);
+  drawCaption(ctx, c.caption, c.captionFont, {fontSize: c.captionSize, bold: c.captionBold, italic: c.captionItalic, color: c.captionColor});
   const frame =
     '<rect x="' +
     FRAME.x +
@@ -380,16 +426,16 @@ export async function serializeSvg(assets: Assets, c: Composition) {
     " " +
     region.height +
     '"><title>' +
-    escapeXml(c.caption || "My Poloroid") +
-    "</title>" +
+    escapeXml(c.caption || "My Polaroid") +
+    "</title><defs><clipPath id=\"frame-clip\"><rect x=\"40\" y=\"35\" width=\"520\" height=\"" + FRAME.height + "\"/></clipPath></defs><g clip-path=\"url(#frame-clip)\">" +
     frame +
     photosSvg.join("") +
     `<path fill="${c.frameColor}" fill-rule="evenodd" d="M${FRAME.x} ${FRAME.y}h${FRAME.width}v${FRAME.height}h${-FRAME.width}Z M${PHOTO.x} ${PHOTO.y}h${PHOTO.size}v${PHOTO.size}h${-PHOTO.size}Z"/>` +
-    '<image x="40" y="575" width="520" height="100" xlink:href="' +
+    '<image x="40" y="540" width="520" height="135" xlink:href="' +
     caption.toDataURL("image/png") +
     '"/>' +
     decorationsSvg.join("") +
-    "</svg>"
+    "</g></svg>"
   );
 }
 export function download(blob: Blob, filename: string) {
@@ -420,7 +466,7 @@ export function canvasBlob(output: HTMLCanvasElement, type: string) {
               new Error(
                 "This browser could not encode " +
                   type +
-                  ". Choose PNG or JPEG.",
+                  ". Try downloading again, or reduce the artwork size in Edit.",
               ),
             ),
       type,
@@ -436,20 +482,20 @@ export async function exportFile(
   if (format === "svg") {
     download(
       new Blob([await serializeSvg(assets, c)], { type: "image/svg+xml" }),
-      "my-poloroid.svg",
+      "my-polaroid.svg",
     );
     return;
   }
-  const out = await renderComposition(canvas(1, 1), assets, c, bounds(c), 3);
+  const out = await renderComposition(canvas(1, 1), assets, c, FRAME, 3);
   if (format !== "png") flatten(out);
   const blob =
     format === "heic"
       ? await (await import("./heicExport")).encodeHeic(out)
       : await canvasBlob(out, format === "jpeg" ? "image/jpeg" : "image/png");
-  download(blob, "my-poloroid." + (format === "jpeg" ? "jpg" : format));
+  download(blob, "my-polaroid." + (format === "jpeg" ? "jpg" : format));
 }
 export async function printComposition(assets: Assets, c: Composition) {
-  const region = bounds(c),
+  const region = FRAME,
     out = await renderComposition(canvas(1, 1), assets, c, region, 3);
   const sheet = document.createElement("div");
   sheet.className = "print-sheet";

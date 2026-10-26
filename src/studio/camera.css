@@ -1,0 +1,142 @@
+/* Leather, machined metal and real controls, adapted from the supplied Canva camera. */
+.camera-intro { grid-template-columns: minmax(0,1fr); gap:24px; padding:30px 0 36px; justify-items:center; }
+.intro-copy { text-align:center; max-width:760px; }
+.intro-copy h1 { font-size:clamp(32px,4vw,48px); line-height:1.12; }
+.intro-copy > p:first-of-type { max-width:none; margin-top:12px; font-size:16px; }
+.camera-demo { width:100%; max-width:360px; justify-self:center; }
+.camera-start { text-align:center; }
+.camera-intro > .start-actions { margin-top:0; justify-content:center; }
+.camera-start .import-hint { margin-top:8px; }
+.camera-start .local-note { margin-top:8px; }
+.camera-start .resume-link { justify-content:center; }
+.instant-camera { padding:22px 24px 18px; border:2px solid #474943; border-radius:9px; background:#252622 url('/textures/leather.webp') repeat; background-size:340px; box-shadow:inset 0 1px 1px #fff5, inset 0 -3px 6px #000, 0 16px 26px -14px #24231d80; }
+.camera-nameplate { padding:0 0 18px; align-items:center; gap:12px; }
+.camera-nameplate > span:first-child { padding:8px 14px; border:1px solid #8c8d83; border-radius:2px; background:linear-gradient(165deg,#e3e4da,#9b9e93 48%,#c9cdc1); box-shadow:0 2px 3px #000b,inset 0 1px #fff; color:#252b26; font:600 18px/1.1 'Helvetica Neue',Arial,sans-serif; letter-spacing:.19em; }
+.camera-indicator { padding:5px 8px; color:#e7e5d4; background:#141713; border:1px solid #707267; font:9px/1.4 ui-monospace,monospace; letter-spacing:.14em; text-align:center; }
+.viewfinder-bezel { position:relative; padding:13px; border:1px solid #7e8277; border-radius:3px; background:linear-gradient(125deg,#42483d,#20251e 55%,#51564b); box-shadow:0 3px 5px #0009,inset 0 1px #8b9082; }
+.camera-display,.camera-experience .camera-display { aspect-ratio:1; border:2px solid #090c08; border-radius:0; }
+.camera-display > img { object-fit:contain; filter:none; }
+.camera-display > video { object-fit:contain; }
+.camera-screw { position:absolute; width:6px; height:6px; background:linear-gradient(45deg,#b5baab 40%,#24291f 42%,#24291f 57%,#b5baab 60%); border-radius:50%; box-shadow:0 1px 2px #000; }
+.screw-tl { top:4px;left:4px; }.screw-tr { top:4px;right:4px; }.screw-bl { bottom:4px;left:4px; }.screw-br { bottom:4px;right:4px; }
+.viewfinder-status { font-size:9px; letter-spacing:.05em; background:#142012dd; padding:5px 7px; top:8px; left:8px; right:auto; }
+.viewfinder-corners { opacity:.6; inset:25px 15px 16px; }
+.camera-hardware { padding:18px 8px 14px; align-items:center; justify-content:space-between; gap:12px; }
+.hardware-control { display:flex; flex-direction:column; align-items:center; gap:9px; }
+.shutter-control { align-self:flex-start; }
+.hardware-control > span { color:#fff9e9; font:600 11px/1 ui-monospace,monospace; letter-spacing:.14em; text-shadow:0 1px 2px #000; }
+.film-roll { width:60px; height:60px; min-height:60px; padding:0; border:2px solid #8f9385; border-radius:50%; color:#e7e5d9; background:radial-gradient(circle,#40483c 40%,#191e17 62%,transparent 64%),repeating-conic-gradient(#919581 0deg 4deg,#282e23 4deg 9deg); box-shadow:0 3px 4px #000c,inset 0 0 0 2px #141a10; }
+.film-roll:hover:not(:disabled) { background:#49503f; }.film-roll[aria-pressed=true] svg { transform:rotate(65deg); }.film-roll svg { transition:transform .3s ease-out; }
+.camera-hardware-copy { flex-direction:column; gap:8px; text-align:center; color:#dfdbc8; font-size:10px; }
+.film-stripes { height:20px; width:32px; }
+.shutter { width:64px; min-height:64px; height:64px; border:5px solid #b9bdaf; background:radial-gradient(circle at 40% 30%,#d4573d,#9b261d 72%); box-shadow:0 4px 5px #000c,inset 0 1px 2px #ffb195; }
+.instant-camera button:focus-visible { outline:3px solid #d9edb6; outline-offset:5px; }
+.instant-camera button:disabled { opacity:.5; }
+.ejection-slot { height:8px; margin:0 5px; border-radius:1px; }
+.demo-instruction { margin:16px 0 0; font-size:13px; text-align:center; }
+.camera-footnote { display:block; margin:7px 0 0; text-align:center; font-size:10px; }
+.demo-develop { display:flex; margin:4px auto 0; }
+.demo-print-tray { overflow:hidden; padding:0 20px 18px; }
+.demo-print { position:relative; width:240px; max-width:100%; margin:0 auto; padding:13px 13px 22px; background:#fff9e9; box-shadow:0 5px 10px #30271938; }
+.peel-photo { position:relative; aspect-ratio:1; overflow:hidden; }
+.peel-photo img { width:100%; height:100%; object-fit:contain; }
+.peel-cover { position:absolute; inset:0; width:100%; border:0; border-radius:0; background:#966b40; color:#fff9e9; display:flex; justify-content:space-between; align-items:flex-end; padding:16px; font-size:13px; box-shadow:inset -15px 0 25px #51371944; }
+.peel-cover:hover { background:#82572f; }.peel-cover::after { content:''; position:absolute; top:0; right:0; border-style:solid; border-width:0 28px 28px 0; border-color:transparent #fff9e9 #c9a474 transparent; }
+.demo-caption { display:block; margin-top:16px; text-align:center; font:16px Georgia,serif; color:#554732; }
+.camera-experience.has-print .camera-hardware { display:flex; }
+.camera-experience.has-print .instant-camera { border-radius:9px; }
+@media(max-width:700px) {
+  .camera-intro { padding:22px 0 28px; gap:20px; }
+  .intro-copy h1 { font-size:34px; }.intro-copy > p:first-of-type { margin-top:10px; font-size:14px; max-width:34ch; margin-inline:auto; }
+  .camera-demo { max-width:320px; }
+  .instant-camera,.camera-experience .instant-camera { padding:16px; }
+  .camera-nameplate { padding-bottom:14px; }
+  .camera-nameplate > span:first-child,.camera-experience .camera-nameplate > span:first-child { font-size:15px; padding:8px 10px; }
+  .camera-hardware { padding:16px 3px 12px; }
+  .camera-experience .camera-hardware { padding:16px 3px 12px; }
+  .camera-experience .camera-display { aspect-ratio:1; }
+  .camera-footnote { font-size:10px; }
+}
+@media(max-width:370px) { .instant-camera,.camera-experience .instant-camera { padding:12px; }.camera-nameplate > span:first-child,.camera-experience .camera-nameplate > span:first-child { font-size:13px; }.film-roll { width:52px;height:52px;min-height:52px; }.camera-hardware-copy { font-size:9px; }.intro-copy h1 { font-size:31px; }.start-actions { flex-wrap:wrap; } }
+@media(prefers-reduced-motion:reduce) { .film-roll svg { transition:none; } }
+
+/* A single measurement keeps the paper aligned with the physical exit slot. */
+.camera-assembly { --camera-pad:24px; --slot-inset:calc(var(--camera-pad) + 7px); width:100%; }
+.camera-assembly .instant-camera { position:relative; z-index:2; padding-inline:var(--camera-pad); }
+.camera-assembly.has-print .viewfinder-bezel { display:none; }
+.print-outlet { padding:0 var(--slot-inset) 20px; overflow:hidden; }
+.instant-print { width:100%; margin:0 auto; }
+.print-drag { touch-action:pan-y; cursor:grab; }
+.instant-paper { background:#fff9e9; padding:6% 6% 10%; box-shadow:0 10px 20px #30271930; }
+.instant-photo-window { aspect-ratio:1; background:#25312b; overflow:hidden; }
+.instant-photo-window img { display:block; width:100%; height:100%; object-fit:contain; user-select:none; }
+.instant-strip .instant-photo-window + .instant-photo-window { margin-top:4%; }
+.undeveloped-photo { width:100%; height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; background:linear-gradient(130deg,#4c584a,#263b32); color:#f7f0d9; font-size:clamp(12px,2vw,18px); }
+.instant-caption { display:block; text-align:center; margin-top:10%; color:#554732; font:clamp(15px,2vw,23px)/1.3 Georgia,serif; }
+.print-reveal-actions { text-align:center; margin:4px 0 16px; }
+.print-action-row { display:flex; justify-content:center; align-items:stretch; gap:10px; margin:0 auto; max-width:440px; }
+.print-action-row > button { min-height:52px; padding:12px 18px; }
+.print-action-row .shake-reveal { margin:0; font-weight:600; }
+.shake-reveal svg { flex-shrink:0; }
+.shake-reveal:disabled { opacity:1; color:#434e3d; background:#e6eadf; border-color:#b2b9a9; }
+@media(max-width:700px) {
+  .print-action-row { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); }
+  .print-action-row > button { padding:10px 8px; font-size:13px; gap:6px; }
+  .print-action-row > button:only-child { grid-column:1 / -1; justify-self:center; padding-inline:18px; }
+}
+.print-reveal-actions .field-hint { margin:8px 0; }
+.phone-shake { display:flex; align-items:center; gap:6px; margin:auto; }
+.film-roll.roll-needed { border-color:#f4d18b; box-shadow:0 0 0 3px #c6a05e55,0 3px 4px #000c; }
+.roll-instruction { font-weight:600; color:#53442e; }
+.hardware-control > span { font-size:10px; letter-spacing:.06em; white-space:nowrap; }
+@media(max-width:700px) { .camera-assembly { --camera-pad:16px; } }
+@media(max-width:370px) { .camera-assembly { --camera-pad:12px; } }
+/* Knurled timer, metal film cartridges and a two-position flash lever. */
+.camera-settings { display:grid; grid-template-columns:120px minmax(100px,1fr) 48px; gap:12px; align-items:center; margin-top:20px; color:#f5f1e5; }
+.camera-settings fieldset { min-width:0; border:0; margin:0; padding:0; }
+.camera-settings legend,.flash-control > span:first-child { color:#f5f1e5; font-size:12px; font-weight:600; margin-bottom:10px; text-align:center; width:100%; }
+.timer-dial { position:relative; width:120px; height:120px; border-radius:50%; background:radial-gradient(circle,#232625 60%,transparent 61%),repeating-conic-gradient(#b5b6ac 0deg 2deg,#282a26 2deg 6deg); box-shadow:0 3px 7px #000,inset 0 0 0 2px #74776e; }
+.timer-stop { position:absolute; width:44px; height:44px; min-height:44px; padding:0; background:none; border:0; border-radius:50%; color:#f8f6ed; font-size:11px; z-index:1; }
+.timer-stop[aria-pressed=true] { color:#ffdb98; font-weight:700; background:#f4d18b14; }
+.timer-stop:hover:not(:disabled) { background:#fff2; }
+.stop-0 { top:0;left:38px; }.stop-1 { right:0;top:38px; }.stop-2 { bottom:0;left:38px; }.stop-3 { left:0;top:38px; }
+.dial-hub { position:absolute; width:24px;height:24px;top:48px;left:48px;border:1px solid #eee;border-radius:50%;background:linear-gradient(90deg,#565b58,#dce0d8); }
+.timer-pointer { position:absolute; inset:-6px; border-radius:50%; pointer-events:none; transition:transform .2s ease-out; }
+.timer-pointer::before { content:''; position:absolute; top:0;left:calc(50% - 5px); border:5px solid transparent; border-top:8px solid #ec7662; }
+.hardware-value { display:block; text-align:center; font-size:11px; color:#e6ddc8; margin-top:10px; }
+.film-presets { background:#101310; border:2px solid #86897d!important; border-radius:4px; padding:8px!important; }
+.film-presets legend { float:left; margin-bottom:5px; text-align:left; }
+.film-presets button { display:flex; align-items:center; gap:8px; width:100%; min-height:44px; padding:4px; background:none; border:1px solid transparent; color:#f5f1e5; font-size:11px; text-align:left; }
+.film-presets button[aria-pressed=true] { border-color:#d8b77b; background:#d8b77b18; }
+.film-cartridge { display:block; width:35px;height:26px;flex-shrink:0;border-inline:5px solid #a5a89f;background:linear-gradient(#24140e,#bc7949 48%,#382118);box-shadow:inset 0 2px 3px #000; }
+.cartridge-1 { background:linear-gradient(#141414,#acafa7 48%,#30322e); }.cartridge-2 { background:linear-gradient(#0b1420,#4e81af 48%,#1c3049); }.cartridge-3 { background:linear-gradient(#161b0a,#7b8742 48%,#2f351b); }
+.flash-control { text-align:center; }
+.flash-switch { position:relative; display:flex; align-items:center; justify-content:flex-end; width:48px;height:76px;padding:0 0 0 8px;background:none;border:0;color:#f5f1e5; }
+.flash-lever { position:absolute;left:2px;top:8px;width:18px;height:58px;border:2px solid #5d6059;border-radius:6px;background:#0b0e0b; }
+.flash-lever::after { content:'';position:absolute;left:-4px;top:28px;width:22px;height:26px;border:1px solid #888e83;border-radius:4px;background:linear-gradient(90deg,#7c8178,#eceee7);transition:transform .15s ease-out;box-shadow:0 2px 3px #000; }
+.flash-switch[aria-checked=true] .flash-lever::after { transform:translateY(-28px); }
+.flash-led { position:absolute;right:3px;bottom:6px;width:7px;height:7px;border-radius:50%;background:#bd5745; }
+.flash-switch[aria-checked=true] .flash-led { background:#9bdea4; }
+.capture-flash { position:fixed;inset:0;background:#fff6df;pointer-events:none;z-index:20; }
+.camera-experience .camera-settings { grid-template-columns:120px minmax(110px,200px) 48px; justify-content:space-between; }
+@media(max-width:700px) { .camera-settings,.camera-experience .camera-settings { grid-template-columns:120px minmax(0,1fr); gap:14px 10px; }.flash-control { grid-column:1;grid-row:2;display:flex;align-items:center;justify-content:center;gap:6px; }.flash-control > span:first-child { width:auto;margin:0; }.flash-control .hardware-value { margin:0; }.flash-switch { height:68px; }.film-presets { grid-column:2;grid-row:1 / span 2; }.camera-settings { margin-top:16px; } }
+@media(prefers-reduced-motion:reduce) { .timer-pointer,.flash-lever::after { transition:none; } }
+.camera-display .countdown { position:absolute; inset:0; display:grid; place-items:center; color:#fff9e9; background:#1118; font:700 72px/1 Georgia,serif; z-index:3; }
+@media(max-width:370px) { .film-presets button { padding:2px;gap:4px;font-size:10px; }.film-presets legend { font-size:11px; }.film-cartridge { width:20px;height:24px;border-inline-width:3px; } }
+.film-presets button:hover:not(:disabled) { background:#353c30; color:#fff9e9; }
+
+/* Give the desktop camera a landscape body while preserving its paper outlet. */
+@media(min-width:800px) {
+  .camera-demo { max-width:720px; }
+  .camera-experience { width:768px; }
+  .camera-assembly { --desktop-print-width:298px; }
+  .camera-experience .camera-assembly { --desktop-print-width:410px; }
+  .camera-assembly .instant-camera { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:24px; }
+  .camera-nameplate,.camera-hardware,.ejection-slot { grid-column:1 / -1; }
+  .viewfinder-bezel { align-self:center; }
+  .camera-settings,.camera-experience .camera-settings { margin-top:0; grid-template-columns:120px minmax(100px,1fr) 48px; align-self:center; }
+  .camera-assembly .ejection-slot { width:var(--desktop-print-width); max-width:100%; margin-inline:auto; }
+  .print-outlet { padding-inline:0; }
+  .instant-print { width:var(--desktop-print-width); max-width:100%; }
+}
+.print-reveal-actions .print-shake-hint { max-width:52ch; margin-inline:auto; }

@@ -1,6 +1,4 @@
 import {
-  lazy,
-  Suspense,
   useEffect,
   useRef,
   useState,
@@ -16,7 +14,7 @@ import {
   useNavigate,
 } from "react-router";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import { X } from "lucide-react";
+import { X, Volume2, VolumeX, BookOpen } from "lucide-react";
 import { ACCEPT } from "./imports";
 import Camera from "./Camera";
 import { useStudioMotion } from "./useStudioMotion";
@@ -25,8 +23,12 @@ import { Dialog } from "./studio/shared";
 import StartScreen from "./studio/StartScreen";
 import FinishScreen from "./studio/FinishScreen";
 import type { ExampleDefinition } from "./studio/examples";
-
-const EditScreen = lazy(() => import("./studio/EditScreen"));
+import EditorLoader from "./studio/EditorLoader";
+import ScrapbookScreen from "./studio/ScrapbookScreen";
+import { useScrapbook } from "./studio/useScrapbook";
+import { unpackPhoto, type StoredPhoto } from "./scrapbook";
+import { soundEnabled, setSoundEnabled } from "./sounds";
+import InstallApp from "./studio/InstallApp";
 
 function SessionGuard({
   active,
@@ -51,6 +53,10 @@ function SessionGuard({
 
 function StudioApp() {
   const s = useStudioSession();
+  const book = useScrapbook();
+  const [sound, setSound] = useState(soundEnabled);
+  const cameraForBook = useRef(false);
+  const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
   const enabled = useStudioMotion();
   const location = useLocation(),
     navigate = useNavigate();
@@ -60,6 +66,9 @@ function StudioApp() {
     [dragging, setDragging] = useState(false);
   const [replacement, setReplacement] = useState<null | (() => void)>(null);
   const path = location.pathname;
+  useEffect(s.clearMessage, [path, s.clearMessage]);
+  const navigationKey = useRef(location.key);
+  navigationKey.current = location.key;
   const previousPath = useRef(path);
   const leaveEditor = useRef(s.leaveEditor);
   leaveEditor.current = s.leaveEditor;
@@ -69,10 +78,12 @@ function StudioApp() {
     previousPath.current = path;
     document.title =
       path === "/edit"
-        ? "Edit · Poloroid"
+        ? "Edit · Polaroid"
         : path === "/finish"
-          ? "Finish · Poloroid"
-          : "Create a Polaroid · Poloroid";
+          ? "Finish · Polaroid"
+          : path === "/scrapbook"
+            ? "Scrapbook · Polaroid"
+          : "Create a Polaroid · Polaroid";
     document.querySelector<HTMLElement>("main h1")?.focus();
     window.scrollTo?.(0, 0);
   }, [path]);
@@ -84,11 +95,13 @@ function StudioApp() {
     intent.current = mode;
     input.current?.click();
   };
-  const importFiles = (files: File[], mode: "replace" | "add") => {
+  const importFiles = (files: File[], mode: "replace" | "add", destination = "/edit", processed = false) => {
     if (!files.length) return;
     const run = () => {
-      void s.upload(files, mode === "replace").then((success) => {
-        if (success) navigate("/edit");
+      const startedAt = navigationKey.current;
+      void s.upload(files, mode === "replace", processed).then((success) => {
+        if (success && mode === "replace") setEditingMemoryId(null);
+        if (success && navigationKey.current === startedAt) navigate(destination);
       });
     };
     if (mode === "replace") confirmReplacement(run);
@@ -96,16 +109,25 @@ function StudioApp() {
   };
   const tryExample = (example: ExampleDefinition) =>
     confirmReplacement(() => {
+      const startedAt = navigationKey.current;
       void s.startExample(example).then((success) => {
-        if (success) navigate("/edit");
+        if (success) setEditingMemoryId(null);
+        if (success && navigationKey.current === startedAt) navigate("/edit");
       });
     });
   const go = (screen: Screen) => {
     s.leaveEditor();
     navigate(screen);
   };
+  const editSavedPhoto = (photo: StoredPhoto, id: string) => confirmReplacement(() => {
+    const startedAt = navigationKey.current;
+    void unpackPhoto(photo).then(({assets,composition}) => {
+      if (navigationKey.current !== startedAt) return;
+      s.restore(assets,composition); setEditingMemoryId(id); navigate("/edit");
+    }).catch(()=>s.setError("This saved photo could not open. Your scrapbook is still available."));
+  });
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion={enabled ? "never" : "always"}>
       <div
         className="app-shell"
         data-motion={enabled ? "active" : "paused"}
@@ -122,6 +144,7 @@ function StudioApp() {
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
+          if (path === "/scrapbook") { if (!book.busy) void book.addFiles(Array.from(e.dataTransfer.files)); return; }
           if (!s.busy)
             importFiles(
               Array.from(e.dataTransfer.files),
@@ -144,9 +167,9 @@ function StudioApp() {
         />
         <header className="site-header">
           <Link className="wordmark" to="/" onClick={s.leaveEditor}>
-            Poloroid<span className="wordmark-dot">.</span>
+            Polaroid<span className="wordmark-dot">.</span>
           </Link>
-          <nav aria-label="Studio steps">
+          <div className="header-controls"><nav aria-label="Studio steps">
             {(
               [
                 ["/", "Start"],
@@ -165,6 +188,8 @@ function StudioApp() {
               </button>
             ))}
           </nav>
+          <Link className="scrapbook-nav" to="/scrapbook" aria-label="Scrapbook" aria-current={path === "/scrapbook" ? "page" : undefined}><BookOpen size={17}/><span>Scrapbook</span></Link>
+          <button className="sound-toggle" aria-label={sound ? "Mute sound effects" : "Enable sound effects"} aria-pressed={sound} onClick={()=>{setSound(!sound);setSoundEnabled(!sound);}}>{sound?<Volume2 size={18}/>:<VolumeX size={18}/>}</button></div>
         </header>
         {s.error && (
           <div className="error-banner" role="alert">
@@ -184,8 +209,10 @@ function StudioApp() {
                 onUpload={() => openUpload("replace")}
                 onCamera={() => {
                   intent.current = "replace";
+                  cameraForBook.current = false;
                   setCamera(true);
                 }}
+                onDemoPhoto={file=>importFiles([file],"replace","/edit",true)}
                 onExample={tryExample}
               />
             }
@@ -194,13 +221,11 @@ function StudioApp() {
             path="/edit"
             element={
               <SessionGuard active={s.hasSession}>
-                <Suspense fallback={<p role="status">Opening editor…</p>}>
-                  <EditScreen
+                  <EditorLoader
                     studio={s}
                     enabled={enabled}
                     onUpload={() => openUpload("add")}
                   />
-                </Suspense>
               </SessionGuard>
             }
           />
@@ -208,12 +233,24 @@ function StudioApp() {
             path="/finish"
             element={
               <SessionGuard active={s.hasSession}>
-                <FinishScreen studio={s} />
+                <FinishScreen studio={s} updatingScrapbook={!!editingMemoryId} scrapbookBusy={book.loading || book.busy} onScrapbook={()=>{s.finish();const startedAt=navigationKey.current;void book.addCurrent(s.assets,s.composition,editingMemoryId).then(success=>{if(navigationKey.current!==startedAt)return;if(success)navigate("/scrapbook");else s.setError("The scrapbook could not accept this photo. Check its storage message or page limit.");});}} />
               </SessionGuard>
             }
           />
+          <Route path="/scrapbook" element={<ScrapbookScreen studio={book} onCamera={()=>{intent.current="replace";cameraForBook.current=true;setCamera(true);}} onEditPhoto={editSavedPhoto}/>}/>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <footer className="project-about" aria-labelledby="about-title">
+          <div>
+            <h2 id="about-title">About Polaroid</h2>
+          </div>
+          <div className="about-copy">
+            <p>Polaroid is a playful photo studio inspired by instant photography and the joy of making things by hand. Turn a photo into a keepsake: cut it up, layer it, add a few words, and make it yours.</p>
+            <p>Made in your browser, with your photos staying on your device. Download your artwork, print it, or pair it with a 3D-printable frame.</p>
+            <p className="field-hint">Save your scrapbook on this device, or download your Polaroid to keep it. Unsaved edits clear when you close or refresh.</p>
+            <InstallApp/>
+          </div>
+        </footer>
         {dragging && (
           <div className="drop-overlay" aria-hidden="true">
             Drop photos to {path === "/edit" ? "add them" : "start"}
@@ -237,13 +274,17 @@ function StudioApp() {
             <Camera
               enabled={enabled}
               onClose={() => setCamera(false)}
-              onCapture={(file) => {
+              onCapture={(files, destination) => {
                 setCamera(false);
-                importFiles([file], intent.current);
+                if (destination === "scrapbook") {
+                  const startedAt = navigationKey.current;
+                  void book.addFiles(files, files.length > 1 ? "strip" : undefined, true).then(success=>{if(success && navigationKey.current === startedAt)navigate("/scrapbook");});
+                } else importFiles(files, intent.current, destination === "finish" ? "/finish" : "/edit", true);
               }}
               onUpload={() => {
                 setCamera(false);
-                openUpload(intent.current);
+                if(cameraForBook.current){navigate("/scrapbook");book.setStatus("Use Add photos to choose photos for your page.");}
+                else openUpload(intent.current);
               }}
             />
           )}

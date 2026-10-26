@@ -1,8 +1,4 @@
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
   Copy,
   ImagePlus,
   Maximize2,
@@ -13,7 +9,13 @@ import { motion } from "motion/react";
 import { clone, cropLayer, DEFAULT_CROP, type Tool } from "../model";
 import { panelVariants } from "../useStudioMotion";
 import { Range, PresetThumbnail } from "./shared";
-import { tapeColors, type Category, type Studio } from "./useStudioSession";
+import { colorNames, tapeColors, type Category, type Studio } from "./useStudioSession";
+import NumericInput from "./NumericInput";
+import FontPicker from "./FontPicker";
+import TextFormatting from "./TextFormatting";
+import LayerThumbnail from "./LayerThumbnail";
+import { MAX_PIECE_SIZE } from "../limits";
+import PositionControls from "./PositionControls";
 
 const tools: { id: Tool; label: string; icon: typeof Copy }[] = [
   { id: "move", label: "Move", icon: MousePointer2 },
@@ -51,13 +53,10 @@ function ToolSettings({ s }: { s: Studio }) {
             <summary>Cut by angle</summary>
             <label className="field">
               Line angle
-              <input
-                aria-label="Cut angle"
-                type="number"
-                min={-180}
-                max={180}
+              <NumericInput
+                label="Cut angle" min={-180} max={180}
                 value={s.cutAngle}
-                onChange={(e) => s.setCutAngle(Number(e.target.value))}
+                onCommit={s.setCutAngle}
               />
             </label>
             <button
@@ -99,30 +98,23 @@ function ToolSettings({ s }: { s: Studio }) {
       )}
       {tool === "repeat" && grid && (
         <div className="numeric-fields">
-          {(["x", "y", "width", "height"] as const).map((key) => (
+          {(["width", "height"] as const).map((key) => (
             <label className="field" key={key}>
               Grid {key}
-              <input
-                aria-label={`Grid ${key}`}
-                type="number"
-                min={key === "x" || key === "y" ? -200 : 12}
+              <NumericInput key={`${grid.box.id}-${key}`}
+                label={`Grid ${key}`}
+                min={12}
+                max={MAX_PIECE_SIZE}
                 value={Math.round(grid.box[key])}
-                onChange={(e) =>
+                onCommit={(value) =>
                   s.adjustGrid(
                     {
                       ...grid.box,
-                      [key]: Math.max(
-                        key === "x" || key === "y" ? -200 : 12,
-                        Number(e.target.value),
-                      ),
+                      [key]: value,
                     },
-                    false,
+                    true,
                   )
                 }
-                onBlur={s.finish}
-                onKeyUp={(e) => {
-                  if (e.key === "Enter") s.finish();
-                }}
               />
             </label>
           ))}
@@ -133,17 +125,16 @@ function ToolSettings({ s }: { s: Studio }) {
           {(["width", "height"] as const).map((key) => (
             <label className="field" key={key}>
               Crop {key}
-              <input
+              <NumericInput
                 key={`${layer.id}-${layer[key]}`}
-                aria-label={`Crop ${key}`}
-                type="number"
+                label={`Crop ${key}`}
                 min={12}
                 max={layer[key]}
-                defaultValue={Math.round(layer[key])}
-                onBlur={(e) => {
+                value={Math.round(layer[key])}
+                onCommit={(value) => {
                   const amount = Math.max(
                     12,
-                    Math.min(layer[key], Number(e.target.value)),
+                    Math.min(layer[key], value),
                   );
                   const next = clone(s.composition);
                   next.layers = next.layers.map((l) =>
@@ -176,10 +167,21 @@ function PieceSettings({ s }: { s: Studio }) {
       <h3>
         {layer.kind === "photo"
           ? "Selected photo"
-          : layer.kind === "tape"
+          : layer.kind === "text" ? "Selected text" : layer.kind === "tape"
             ? "Selected tape"
             : "Selected paper"}
       </h3>
+      {layer.kind === "text" && <div className="text-settings">
+        <label className="field">Text content
+          <textarea aria-label="Text content" rows={3} maxLength={200} value={layer.text || ""}
+            onChange={e => s.updateLayer({text: e.target.value, name: e.target.value.trim() ? `Text · ${e.target.value.trim().slice(0, 24)}` : "Text"}, true)} onBlur={s.finish}/>
+        </label>
+        <FontPicker label="Text font" value={layer.fontId} sample={layer.text} bold={layer.bold} italic={layer.italic} onChange={fontId => {s.setError(""); s.updateLayer({fontId});}}/>
+        <TextFormatting key={layer.id} label="Text" size={layer.fontSize ?? Math.min(64, layer.height * .65)} bold={layer.bold} italic={layer.italic}
+          onChange={change => {s.setError(""); s.updateLayer({...change, ...(change.fontSize ? {height: Math.max(layer.height, change.fontSize * 2.4 + 8)} : {})});}}/>
+        <p className="field-hint">Text wraps inside its box. Enlarge the box to make room for more lines.</p>
+        <label className="field text-color-field">Text color<input type="color" aria-label="Text color" value={layer.color} onChange={e => s.updateLayer({color: e.target.value}, true)} onBlur={s.finish}/></label>
+      </div>}
       <Range
         label="Rotation"
         value={layer.rotation}
@@ -190,7 +192,7 @@ function PieceSettings({ s }: { s: Studio }) {
         onFinish={s.finish}
       />
       <Range
-        label="Size"
+        label={layer.kind === "text" ? "Text box size" : "Size"}
         value={layer.width}
         min={20}
         max={650}
@@ -203,7 +205,7 @@ function PieceSettings({ s }: { s: Studio }) {
         }
         onFinish={s.finish}
       />
-      {layer.kind !== "photo" && (
+      {layer.kind !== "photo" && layer.kind !== "text" && (
         <div className="color-row">
           <span>Color</span>
           <div>
@@ -211,7 +213,8 @@ function PieceSettings({ s }: { s: Studio }) {
               <button
                 key={color}
                 style={{ background: color }}
-                aria-label={`Piece color ${color}`}
+                aria-label={`Piece color ${colorNames[color]}`}
+                title={colorNames[color]}
                 aria-pressed={layer.color === color}
                 onClick={() => s.updateLayer({ color })}
               />
@@ -219,85 +222,53 @@ function PieceSettings({ s }: { s: Studio }) {
           </div>
         </div>
       )}
+      <PositionControls layer={layer} onChange={s.updateLayer}/>
       <details className="more-options">
-        <summary>More options</summary>
+        <summary>Size and transparency</summary>
         <div className="numeric-fields">
-          {(["x", "y", "width", "height"] as const).map((key) => (
+          {(["width", "height"] as const).map((key) => (
             <label className="field" key={key}>
               {key}
-              <input
-                aria-label={`Piece ${key}`}
-                type="number"
+              <NumericInput key={`${layer.id}-${key}`}
+                label={`Piece ${key}`}
                 value={Math.round(layer[key])}
-                min={key === "x" || key === "y" ? -200 : 12}
-                onChange={(e) =>
+                min={12}
+                max={MAX_PIECE_SIZE}
+                onCommit={(value) =>
                   s.updateLayer(
                     {
-                      [key]: Math.max(
-                        key === "x" || key === "y" ? -200 : 12,
-                        Number(e.target.value),
-                      ),
+                      [key]: value,
                     },
-                    true,
                   )
                 }
-                onBlur={s.finish}
-                onKeyUp={(e) => {
-                  if (e.key === "Enter") s.finish();
-                }}
               />
             </label>
           ))}
         </div>
         <label className="field">
           Angle
-          <input
-            aria-label="Piece angle"
-            type="number"
+          <NumericInput
+            label="Piece angle"
             min={-180}
             max={180}
             value={Math.round(layer.rotation)}
-            onChange={(e) =>
+            onCommit={(value) =>
               s.updateLayer(
                 {
-                  rotation: Math.max(
-                    -180,
-                    Math.min(180, Number(e.target.value)),
-                  ),
+                  rotation: value,
                 },
-                true,
               )
             }
-            onBlur={s.finish}
           />
         </label>
+        <p className="field-hint">Only the area inside the frame is included in your download.</p>
         <Range
           label="Opacity"
           value={layer.opacity * 100}
           onChange={(v) => s.updateLayer({ opacity: v / 100 }, true)}
           onFinish={s.finish}
         />
-        <div className="nudge-actions">
-          <span>Move</span>
-          {(
-            [
-              ["Left", ArrowLeft, -5, 0],
-              ["Up", ArrowUp, 0, -5],
-              ["Down", ArrowDown, 0, 5],
-              ["Right", ArrowRight, 5, 0],
-            ] as const
-          ).map(([name, Icon, dx, dy]) => (
-            <button
-              key={name}
-              aria-label={`Move ${name}`}
-              onClick={() =>
-                s.updateLayer({ x: layer.x + dx, y: layer.y + dy })
-              }
-            >
-              <Icon size={16} />
-            </button>
-          ))}
-        </div>
+
       </details>
     </div>
   );
@@ -328,7 +299,7 @@ function Pieces({ s }: { s: Studio }) {
               className="layer-swatch"
               style={{ background: l.color || undefined }}
             >
-              {l.assetId && <img src={s.assets[l.assetId]?.url} alt="" />}
+              {l.assetId && s.assets[l.assetId] && <LayerThumbnail asset={s.assets[l.assetId]} layer={l} effects={s.composition.effects}/>}
             </span>
             <span>{l.name}</span>
           </button>
@@ -344,25 +315,26 @@ function LookSettings({ s }: { s: Studio }) {
       <h2>Photo look</h2>
       <div className="presets">
         {[
-          { name: "Original", film: 0, copier: 0 },
-          { name: "Sun-faded", film: 0.65, copier: 0 },
-          { name: "Copy shop", film: 0.2, copier: 0.85 },
+          { name: "Original", film: 0, copier: 0, grayscale: 0 },
+          { name: "Warm film", film: 0.65, copier: 0, grayscale: 0 },
+          { name: "Black & white", film: 0.35, copier: 0, grayscale: 1 },
+          { name: "Copy shop", film: 0.2, copier: 0.85, grayscale: 0 },
         ].map((p) => (
           <button
             className="preset"
             key={p.name}
             aria-pressed={
               s.composition.effects.film === p.film &&
-              s.composition.effects.copier === p.copier
+              s.composition.effects.copier === p.copier && (s.composition.effects.grayscale ?? 0) === p.grayscale
             }
-            onClick={() => s.preset(p.film, p.copier)}
+            onClick={() => s.preset(p.film, p.copier, p.grayscale)}
           >
             <PresetThumbnail
               asset={s.asset}
               composition={s.composition}
               crop={s.layer?.crop || DEFAULT_CROP}
               film={p.film}
-              copier={p.copier}
+              copier={p.copier} grayscale={p.grayscale}
             />
             <span>{p.name}</span>
           </button>
@@ -389,7 +361,8 @@ function LookSettings({ s }: { s: Studio }) {
               <button
                 key={color}
                 style={{ background: color }}
-                aria-label={`Paper tone ${color}`}
+                aria-label={`Paper tone ${colorNames[color]}`}
+                title={colorNames[color]}
                 aria-pressed={s.composition.frameColor === color}
                 onClick={() =>
                   s.commit({ ...clone(s.composition), frameColor: color })
@@ -411,6 +384,15 @@ function LookSettings({ s }: { s: Studio }) {
             onBlur={s.finish}
           />
         </label>
+        <label className="field text-color-field">Caption color<input type="color" aria-label="Caption color" value={s.composition.captionColor || "#493e30"} onChange={e => s.preview({...s.composition, captionColor: e.target.value})} onBlur={s.finish}/></label>
+        <FontPicker label="Caption font" value={s.composition.captionFont} sample={s.composition.caption} bold={s.composition.captionBold} italic={s.composition.captionItalic}
+          onChange={captionFont => {s.setError(""); s.commit({...clone(s.composition), captionFont});}}/>
+        <TextFormatting label="Caption" size={s.composition.captionSize ?? 25} max={48} bold={s.composition.captionBold} italic={s.composition.captionItalic}
+          onChange={({fontSize, bold, italic}) => {s.setError(""); s.commit({...clone(s.composition),
+            ...(fontSize !== undefined ? {captionSize: fontSize} : {}),
+            ...(bold !== undefined ? {captionBold: bold} : {}),
+            ...(italic !== undefined ? {captionItalic: italic} : {}),
+          });}}/>
       </div>
     </>
   );
@@ -497,8 +479,9 @@ export default function EditorControls({
         )}
         {s.category === "decorate" && (
           <>
-            <h2>Tape and paper</h2>
+            <h2>Text, tape and paper</h2>
             <div className="decoration-buttons">
+              <button className="secondary-button add-text-button" onClick={s.addText}>Add text</button>
               <button
                 className="secondary-button"
                 title="Tape"
@@ -518,8 +501,7 @@ export default function EditorControls({
               <PieceSettings s={s} />
             ) : (
               <p className="field-hint">
-                Add tape or paper, or select a decoration on the canvas to
-                adjust it.
+                Add text, tape or paper, or select a piece on the canvas to adjust it.
               </p>
             )}
           </>

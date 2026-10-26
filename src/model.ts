@@ -1,17 +1,17 @@
 import { difference, intersection } from "polyclip-ts";
 export const FRAME = { x: 40, y: 35, width: 520, height: (520 * 107) / 88 };
 export const PHOTO = { x: 70, y: 65, size: 460 };
-export const WORKSPACE = { x: -130, y: -65, width: 860, height: 830 };
+export const WORKSPACE = { x: 0, y: 0, width: 600, height: 710 };
 export type Tool = "move" | "crop" | "cut" | "repeat" | "tape" | "paper";
 export type Rect = { x: number; y: number; width: number; height: number };
 export type Point = [number, number];
 export type Polygon = Point[][];
 export type MultiPolygon = Polygon[];
-export type Crop = { zoom: number; x: number; y: number };
+export type Crop = { zoom: number; x: number; y: number; original?: boolean };
 export const DEFAULT_CROP: Crop = { zoom: 1, x: 0, y: 0 };
 export type Layer = Rect & {
   id: string;
-  kind: "photo" | "tape" | "paper";
+  kind: "photo" | "tape" | "paper" | "text";
   name: string;
   rotation: number;
   opacity: number;
@@ -20,11 +20,21 @@ export type Layer = Rect & {
   crop?: Crop;
   source?: Rect;
   mask?: MultiPolygon;
+  text?: string;
+  fontId?: string;
+  fontSize?: number;
+  bold?: boolean;
+  italic?: boolean;
 };
 export type Composition = {
   layers: Layer[];
-  effects: { film: number; copier: number; seed: number };
+  effects: { film: number; copier: number; seed: number; grayscale?: number };
   caption: string;
+  captionFont?: string;
+  captionSize?: number;
+  captionBold?: boolean;
+  captionItalic?: boolean;
+  captionColor?: string;
   frameColor: string;
 };
 export type Asset = {
@@ -41,23 +51,27 @@ export function photoLayer(
   assetId: string,
   name = "Your photograph",
   index = 0,
+  dimensions?: Pick<Asset, "width" | "height">,
 ): Layer {
   const size = index ? PHOTO.size * 0.7 : PHOTO.size,
     offset = index ? 22 + ((index - 1) % 4) * 24 : 0;
+  const longest = dimensions ? Math.max(dimensions.width, dimensions.height) : 1;
+  const ratioX = dimensions ? dimensions.width / longest : 1;
+  const ratioY = dimensions ? dimensions.height / longest : 1;
   return {
     id: crypto.randomUUID(),
     kind: "photo",
     name,
     assetId,
-    crop: { ...DEFAULT_CROP },
-    x: PHOTO.x + offset,
-    y: PHOTO.y + offset,
-    width: size,
-    height: size,
+    crop: { ...DEFAULT_CROP, ...(dimensions ? {original: true} : {}) },
+    x: PHOTO.x + offset + (size - size * ratioX) / 2,
+    y: PHOTO.y + offset + (size - size * ratioY) / 2,
+    width: size * ratioX,
+    height: size * ratioY,
     rotation: 0,
     opacity: 1,
     color: "",
-    source: { x: 0, y: 0, width: PHOTO.size, height: PHOTO.size },
+    source: { x: PHOTO.size * (1-ratioX)/2, y: PHOTO.size * (1-ratioY)/2, width: PHOTO.size*ratioX, height: PHOTO.size*ratioY },
   };
 }
 export function initialComposition(assetId = "sample"): Composition {
@@ -67,6 +81,11 @@ export function initialComposition(assetId = "sample"): Composition {
     caption: "",
     frameColor: "#fff9e9",
   };
+}
+export function addText(composition: Composition): Composition {
+  const next = clone(composition);
+  next.layers.push({id: crypto.randomUUID(), kind: "text", name: "Text", text: "Your words here", fontId: "studio", fontSize: 40, x: 140, y: 245, width: 320, height: 110, rotation: 0, opacity: 1, color: "#322e27"});
+  return next;
 }
 export function localPoint(layer: Layer, x: number, y: number) {
   const angle = (-layer.rotation * Math.PI) / 180,
@@ -463,6 +482,13 @@ export function cutLayer(
     .flat()
     .filter((p) => area(p[0]) > 1)
     .map((p) => fragment(layer, p));
+  const used = new Set(composition.layers.filter(l => l.id !== id).map(l => l.name));
+  let number = 1;
+  for (const piece of pieces) {
+    while (used.has(`Photo fragment ${number}`)) number++;
+    piece.name = `Photo fragment ${number++}`;
+    used.add(piece.name);
+  }
   const next = clone(composition),
     index = next.layers.findIndex((l) => l.id === id);
   next.layers.splice(index, 1, ...pieces);

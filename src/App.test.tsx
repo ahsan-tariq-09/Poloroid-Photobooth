@@ -218,6 +218,89 @@ async function startClassic() {
   await click('[aria-label="Try Classic example"]');
 }
 describe("existing editor regression", () => {
+  it("moves keyboard focus to the opposite history action when the current one is exhausted", async () => {
+    await act(async () => {host.querySelector<HTMLDetailsElement>(".more-options")!.open = true;});
+    await click('[aria-label="Move Right"]');
+    const undo = host.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!;
+    const redo = host.querySelector<HTMLButtonElement>('[aria-label="Redo"]')!;
+    await act(async () => undo.focus()); await button("Undo");
+    expect(undo.disabled).toBe(true); expect(document.activeElement).toBe(redo);
+    await button("Redo"); expect(redo.disabled).toBe(true); expect(document.activeElement).toBe(undo);
+  });
+  it("clears editor-only notifications on navigation and gives colors meaningful names", async () => {
+    await button("Decorate"); await button("Add text");
+    expect(host.querySelector(".toast")?.textContent).toContain("Text added");
+    await button("Continue");
+    expect(host.querySelector(".toast")).toBeNull();
+    await click('a[href="/edit"]'); await button("Look");
+    expect(host.querySelector('[aria-label="Paper tone Cream"]')).not.toBeNull();
+  });
+  it("edits text and caption size and styles independently, with undo and copy", async () => {
+    await button("Decorate"); await button("Add text");
+    const input = host.querySelector<HTMLInputElement>('[aria-label="Text font size"]')!;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+    await act(async () => { input.focus(); setter.call(input, "56"); input.dispatchEvent(new Event("input", {bubbles: true})); });
+    await act(async () => input.blur()); await flush();
+    expect(comp().layers.at(-1)!.fontSize).toBe(56);
+    await click('[aria-label="Text bold"]'); await click('[aria-label="Text italic"]');
+    expect(comp().layers.at(-1)).toMatchObject({fontSize: 56, bold: true, italic: true});
+    await button("Undo"); expect(comp().layers.at(-1)!.italic).toBeUndefined();
+    await button("Redo");
+    await menuAction("Copy"); await menuAction("Paste");
+    expect(comp().layers.at(-1)).toMatchObject({fontSize: 56, bold: true, italic: true});
+    await button("Look");
+    const caption = host.querySelector<HTMLInputElement>('[aria-label="Caption font size"]')!;
+    await act(async () => { caption.focus(); setter.call(caption, "36"); caption.dispatchEvent(new Event("input", {bubbles: true})); });
+    await act(async () => caption.blur()); await flush();
+    await click('[aria-label="Caption bold"]'); await click('[aria-label="Caption italic"]');
+    expect(comp()).toMatchObject({captionSize: 36, captionBold: true, captionItalic: true});
+    expect(comp().layers.at(-1)).toMatchObject({fontSize: 56, bold: true, italic: true});
+  });
+
+  it("adds text with an independent font, copies it, and restores its history", async () => {
+    await button("Decorate"); await button("Add text");
+    const text = comp().layers.at(-1)!;
+    expect(text.kind).toBe("text");
+    expect(host.querySelectorAll('[aria-label="Text font"] option')).toHaveLength(30);
+    const picker = host.querySelector<HTMLSelectElement>('[aria-label="Text font"]')!;
+    await act(async () => { picker.value = "ransom-note"; picker.dispatchEvent(new Event("change", {bubbles:true})); });
+    await flush();
+    expect(comp().layers.at(-1)!.fontId).toBe("ransom-note");
+    await menuAction("Copy"); await menuAction("Paste");
+    expect(comp().layers.at(-1)!.fontId).toBe("ransom-note");
+    expect(comp().layers).toHaveLength(3);
+    await button("Undo"); expect(comp().layers).toHaveLength(2);
+    await button("Look");
+    const caption = host.querySelector<HTMLSelectElement>('[aria-label="Caption font"]')!;
+    await act(async () => { caption.value = "caveat"; caption.dispatchEvent(new Event("change",{bubbles:true})); });
+    await flush(); expect(comp().captionFont).toBe("caveat");
+    expect(comp().layers.at(-1)!.fontId).toBe("ransom-note");
+  });
+
+  it("preserves partial size drafts until blur and uses directional positioning", async () => {
+    await act(async () => { host.querySelector<HTMLDetailsElement>(".more-options")!.open = true; });
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+    for (const [label, drafts, expected] of [["Piece width", ["2","25"],25]] as const) {
+      const input = host.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;
+      const prior = comp().layers[0][label === "Piece width" ? "width" : "x"];
+      await act(async () => input.focus());
+      for (const draft of drafts) await act(async () => { setter.call(input,draft); input.dispatchEvent(new Event("input",{bubbles:true})); });
+      expect(comp().layers[0][label === "Piece width" ? "width" : "x"]).toBe(prior);
+      await act(async () => input.blur()); await flush();
+      expect(comp().layers[0][label === "Piece width" ? "width" : "x"]).toBe(expected);
+    }
+  });
+
+  it("keeps the user's Start navigation when a pending import completes", async () => {
+    let resolve!: (asset: Asset) => void;
+    mocks.importAsset.mockImplementationOnce(() => new Promise<Asset>(r => {resolve = r;}));
+    await button("Add photos"); await chooseFiles(["slow.png"]);
+    await click('nav[aria-label="Studio steps"] button:first-child');
+    expect(window.location.pathname).toBe("/");
+    await act(async () => resolve(fixture("slow.png"))); await flush();
+    expect(window.location.pathname).toBe("/");
+    await click('a[href="/edit"]'); expect(comp().layers).toHaveLength(2);
+  });
   beforeEach(startClassic);
   it("copies without history, pastes after deletion, and undoes menu alignment and ordering one action at a time", async () => {
     const original = structuredClone(comp());
@@ -297,7 +380,7 @@ describe("existing editor regression", () => {
 
     await click('[aria-label="Move Right"]');
 
-    expect(comp().layers.at(-1)!.x).toBe(before + 5);
+    expect(comp().layers.at(-1)!.x).toBe(before + 10);
 
     await menuAction("Delete");
 
@@ -382,7 +465,7 @@ describe("existing editor regression", () => {
 
     expect(comp().layers).toHaveLength(3);
     expect(Object.values(mocks.current!.assets).map((a) => a.name)).toEqual([
-      "Coastal photo",
+      "Vintage party photo",
       "older.heic",
       "newer.svg",
     ]);
@@ -450,6 +533,11 @@ describe("existing editor regression", () => {
 
       "/frames/polaroid%20frame.stl",
     ]);
+    expect(host.querySelector(".printable-frames")?.tagName).toBe("SECTION");
+    expect(host.querySelectorAll('.printable-frames a[href*="printables.com"]')).toHaveLength(2);
+    expect(host.querySelector("#about-title")?.textContent).toBe("About Polaroid");
+    expect(host.querySelector(".project-about")?.textContent).toContain("photos staying on your device");
+    expect(host.querySelector(".project-about")?.textContent).not.toMatch(/CS\s*335/i);
   });
 
   it("stops the camera stream on close and handles permission failure", async () => {
@@ -462,8 +550,8 @@ describe("existing editor regression", () => {
       value: { getUserMedia },
     });
 
-    if (!host.querySelector(".camera-button")) await click(".wordmark");
-    await click(".camera-button");
+    if (!host.querySelector('[aria-label="Take a photo"]')) await click(".wordmark");
+    await click('[aria-label="Take a photo"]');
 
     expect(getUserMedia).toHaveBeenCalledOnce();
 
@@ -473,8 +561,8 @@ describe("existing editor regression", () => {
 
     getUserMedia.mockRejectedValueOnce(new Error("Permission denied"));
 
-    if (!host.querySelector(".camera-button")) await click(".wordmark");
-    await click(".camera-button");
+    if (!host.querySelector('[aria-label="Take a photo"]')) await click(".wordmark");
+    await click('[aria-label="Take a photo"]');
 
     expect(host.textContent).toContain("permission was declined");
 
@@ -484,7 +572,7 @@ describe("existing editor regression", () => {
 
 describe("photo-first navigation and sessions", () => {
   it("starts without editing controls, and guards direct Edit and Finish routes", async () => {
-    expect(host.textContent).toContain("Create a Polaroid");
+    expect(host.textContent).toContain("Keep a little");
     expect(host.querySelector(".editor-controls")).toBeNull();
     expect(host.querySelectorAll(".example-card")).toHaveLength(3);
     for (const path of ["/edit", "/finish"]) {
@@ -549,7 +637,7 @@ describe("photo-first navigation and sessions", () => {
     await button("Add tape");
     const before = structuredClone(comp());
     await click(".wordmark");
-    expect(host.textContent).toContain("Resume editing");
+    expect(host.textContent).toContain("Continue your Polaroid");
     await click('[aria-label="Try 3×3 grid example"]');
     expect(host.querySelector('[role="dialog"]')).not.toBeNull();
     await act(async () =>
@@ -646,7 +734,7 @@ describe("photo-first navigation and sessions", () => {
     expect(comp().layers).toHaveLength(1);
   });
 
-  it("enters Edit after the camera countdown and stops the capture stream", async () => {
+  it.each([["Develop", "/edit"], ["Done", "/finish"]])("offers both choices after capture and routes %s to %s", async (choice, destination) => {
     const stop = vi.fn();
     Object.defineProperty(navigator, "mediaDevices", {
       configurable: true,
@@ -659,13 +747,17 @@ describe("photo-first navigation and sessions", () => {
     mocks.importAsset.mockResolvedValueOnce(fixture("camera-photo.png"));
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
       drawImage: () => {},
+      getImageData:()=>({data:new Uint8ClampedArray([80,100,120,255]),width:1,height:1}),putImageData:()=>{},
       translate: () => {},
       scale: () => {},
     } as never);
     vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
       (callback) => callback(new Blob(["photo"], { type: "image/png" })),
     );
-    await button("Use camera");
+    Object.defineProperty(HTMLVideoElement.prototype,"videoWidth",{configurable:true,value:640});
+    Object.defineProperty(HTMLVideoElement.prototype,"videoHeight",{configurable:true,value:480});
+    URL.createObjectURL = vi.fn(()=>"blob:captured");
+    await button("Take a photo");
     await act(async () =>
       host
         .querySelector("video")!
@@ -673,13 +765,21 @@ describe("photo-first navigation and sessions", () => {
     );
     vi.useFakeTimers();
     try {
-      const capture = [...host.querySelectorAll("button")].find(
-        (b) => b.textContent?.trim() === "Capture",
-      )!;
+      await act(async () => host.querySelector<HTMLButtonElement>('[role="dialog"] [aria-label="Roll film"]')!.click());
+      const capture = host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!;
       await act(async () => capture.click());
       expect(host.textContent).toContain("3");
       await act(async () => vi.advanceTimersByTimeAsync(3000));
-      expect(window.location.pathname).toBe("/edit");
+      expect(window.location.pathname).toBe("/");
+      expect(host.querySelector(".capture-decisions")).toBeNull();
+      await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Shake to reveal"]')!.click());
+      await act(async()=>vi.advanceTimersByTimeAsync(650));
+      expect(host.textContent).toContain("Done");
+      const develop=[...host.querySelectorAll("button")].find(b=>b.textContent?.trim()===choice)!;
+      await act(async()=>develop.click());
+      vi.useRealTimers(); await flush();
+      expect(window.location.pathname).toBe(destination);
+      if (destination === "/finish") await click('a[href="/edit"]');
       expect(comp().layers[0].name).toBe("camera-photo.png");
       expect(comp().caption).toBe("");
       expect(stop).toHaveBeenCalled();

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { importAsset } from "../imports";
 import {
   addDecoration,
+  addText as addTextLayer,
   clone,
   pasteLayer,
   orderLayer,
@@ -27,6 +28,7 @@ import {
   type ExportFormat,
 } from "../render";
 import { loadSample, type ExampleDefinition } from "./examples";
+import { assertComposition } from "../limits";
 export type Category = "arrange" | "decorate" | "look";
 export type Screen = "/" | "/edit" | "/finish";
 export const tapeColors = [
@@ -36,6 +38,11 @@ export const tapeColors = [
   "#53582f",
   "#dfc1ae",
 ];
+export const colorNames: Record<string, string> = {
+  "#d8b88a": "Sand", "#e65b3c": "Terracotta", "#6b897e": "Sage",
+  "#53582f": "Olive", "#dfc1ae": "Blush", "#fff9e9": "Cream",
+  "#ead0a0": "Sand", "#f2ded2": "Blush",
+};
 export function useStudioSession() {
   const [empty] = useState(() => initialComposition());
   const [history, dispatch] = useReducer(historyReducer, {
@@ -72,20 +79,28 @@ export function useStudioSession() {
     alive = useRef(true),
     toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layer = composition.layers.find((l) => l.id === selected);
+  useEffect(() => {
+    if (selected && !composition.layers.some(l => l.id === selected))
+      setSelected(composition.layers.at(-1)?.id || null);
+  }, [selected, composition.layers]);
   const asset =
     (layer?.assetId ? assets[layer.assetId] : null) ||
     Object.values(assets)[0] ||
     null;
   const commit = useCallback((value: Composition) => {
+    try { assertComposition(value); } catch (e) { setError((e as Error).message); return false; }
     compositionRef.current = value;
     draftRef.current = null;
     setDraft(null);
     dispatch({ type: "commit", value });
+    return true;
   }, []);
   const preview = (value: Composition) => {
+    try { assertComposition(value); } catch (e) { setError((e as Error).message); return false; }
     compositionRef.current = value;
     draftRef.current = value;
     setDraft(value);
+    return true;
   };
   const finish = () => {
     if (draftRef.current) commit(draftRef.current);
@@ -94,6 +109,10 @@ export function useStudioSession() {
     setMessage(text);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setMessage(""), 3500);
+  }, []);
+  const clearMessage = useCallback(() => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setMessage("");
   }, []);
   const reportError = useCallback((text: string) => setError(text), []);
   const ownedUrls = useRef(new Set<string>());
@@ -150,7 +169,7 @@ export function useStudioSession() {
       if (alive.current && token === request.current) setBusy(false);
     }
   };
-  const upload = (inputFiles: File | File[], replace = false) => {
+  const upload = (inputFiles: File | File[], replace = false, processed = false) => {
     finish();
     const files = Array.isArray(inputFiles) ? inputFiles : [inputFiles];
     const token = replace ? ++request.current : request.current;
@@ -175,17 +194,17 @@ export function useStudioSession() {
               (replace && !succeeded) ||
               !Object.keys(assetsRef.current).length
             ) {
-              const added = photoLayer(id, value.name);
+              const added = photoLayer(id, value.name, 0, value);
               resetSession(
                 { [id]: value },
-                { ...initialComposition(), layers: [added] },
+                { ...initialComposition(), effects: {film: processed ? 0 : .65, copier: 0, seed: 76}, layers: [added] },
               );
             } else {
               const added = photoLayer(
                 id,
                 value.name,
                 baseline.current.layers.filter((l) => l.kind === "photo")
-                  .length,
+                  .length, value,
               );
               assetsRef.current = { ...assetsRef.current, [id]: value };
               setAssets(assetsRef.current);
@@ -250,6 +269,14 @@ export function useStudioSession() {
     if (!target) return;
     Object.assign(target, values);
     continuous ? preview(next) : commit(next);
+  };
+  const addText = () => {
+    finish();
+    const next = addTextLayer(compositionRef.current);
+    if (!commit(next)) return;
+    setSelected(next.layers.at(-1)!.id);
+    setCategory("decorate"); setTool("move"); setGrid(null);
+    toast("Text added. Write your own words in Text content.");
   };
   const reorder = (action: LayerOrder) => {
     finish();
@@ -345,6 +372,7 @@ export function useStudioSession() {
     next.layers = next.layers.map(
       (l) => transformed.find((t) => t.id === l.id) || l,
     );
+    try { assertComposition(next); } catch(e) {setError((e as Error).message); return;}
     const updated = { ...g, box };
     gridRef.current = updated;
     setGrid(updated);
@@ -355,14 +383,14 @@ export function useStudioSession() {
     next.effects[key] = value / 100;
     preview(next);
   };
-  const preset = (film: number, copier: number) => {
+  const preset = (film: number, copier: number, grayscale = 0) => {
     commit({
       ...clone(composition),
-      effects: { ...composition.effects, film, copier },
+      effects: { ...composition.effects, film, copier, grayscale },
     });
   };
   const exportFile = async (print = false) => {
-    if (!asset || busy) return;
+    if (!asset || busy || exporting) return;
     finish();
     setExporting(true);
     setError("");
@@ -420,6 +448,8 @@ export function useStudioSession() {
     }
   };
   return {
+    restore: resetSession,
+    addText,
     history,
     composition,
     assets,
@@ -429,6 +459,7 @@ export function useStudioSession() {
     error,
     setError,
     message,
+    clearMessage,
     category,
     changeCategory,
     tool,

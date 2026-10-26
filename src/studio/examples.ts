@@ -18,7 +18,7 @@ export type ExampleDefinition = {
 
 function exampleComposition(kind: ExampleDefinition["id"]): Composition {
   let c = initialComposition();
-  c.layers[0].name = "Coastal photo";
+  c.layers[0].name = "Vintage party photo";
   if (kind === "collage") {
     c = cutLayer(
       c,
@@ -76,11 +76,11 @@ export const examples: ExampleDefinition[] = [
 
 let sample: Promise<Asset> | undefined;
 export function loadSample(): Promise<Asset> {
-  return (sample ??= loadImage("/sample-coast.png")
+  return (sample ??= loadImage("/sample-flash.webp")
     .then((image) => ({
       image,
-      url: "/sample-coast.png",
-      name: "Coastal photo",
+      url: "/sample-flash.webp",
+      name: "Vintage party photo",
       width: image.naturalWidth,
       height: image.naturalHeight,
     }))

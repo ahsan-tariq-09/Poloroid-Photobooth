@@ -1,4 +1,4 @@
-struct Settings { width: u32, height: u32, film: f32, copier: f32, seed: u32, pad0: u32, pad1: u32, pad2: u32 }
+struct Settings { width: u32, height: u32, film: f32, copier: f32, seed: u32, grayscale: f32, pad1: u32, pad2: u32 }
 @group(0) @binding(0) var<storage, read> inputPixels: array<u32>;
 @group(0) @binding(1) var<storage, read_write> outputPixels: array<u32>;
 @group(0) @binding(2) var<uniform> settings: Settings;
@@ -30,8 +30,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let gx = u32(floor(f32(gid.x) / f32(settings.width) * 460.0));
   let gy = u32(floor(f32(gid.y) / f32(settings.height) * 460.0));
   let grain = (f32(hash(gx + gy * 461u + settings.seed) % 101u) / 100.0 - 0.5) * 22.0 * settings.film;
-  let faded = p.rgb * vec3<f32>(0.85,0.82,0.77) + vec3<f32>(32.0,26.0,22.0);
+  let luminance = dot(p.rgb, vec3<f32>(0.2126,0.7152,0.0722));
+  let muted = mix(p.rgb, vec3<f32>(luminance), 0.28);
+  let faded = muted * vec3<f32>(0.85,0.82,0.77) + vec3<f32>(32.0,26.0,22.0);
   p = vec4<f32>(mix(p.rgb, faded, settings.film) + vec3<f32>(grain), p.a);
+  let gray = dot(p.rgb, vec3<f32>(0.2126,0.7152,0.0722));
+  p = vec4<f32>(mix(p.rgb, vec3<f32>(gray), settings.grayscale), p.a);
   let rgba = vec4<u32>(round(clamp(p,vec4<f32>(0.0),vec4<f32>(255.0))));
   outputPixels[gid.y * settings.width + gid.x] = rgba.r | (rgba.g << 8u) | (rgba.b << 16u) | (rgba.a << 24u);
 }

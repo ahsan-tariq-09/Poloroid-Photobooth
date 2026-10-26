@@ -1,0 +1,95 @@
+/* Warm paper outside; the user's black-and-metal camera reference inside. */
+@font-face { font-family: "DM Serif Display"; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/dm-serif-display/regular.ttf') format('truetype'); }
+@font-face { font-family: "DM Serif Display"; font-style: italic; font-weight: 400; font-display: swap; src: url('/fonts/dm-serif-display/italic.ttf') format('truetype'); }
+:root { --paper: #faf6ec; --ink: #292c26; --muted: #666454; --line: #d5cebd; --accent: #ac3d29; background: #eeeadd; }
+body::before { display: none; }
+::selection { background: #ddd3b9; color: #292c26; }
+input, textarea { caret-color: var(--accent); }
+* { scrollbar-color: #aaa58f #eeeadd; scrollbar-width: thin; }
+.app-shell { max-width: 1380px; padding: 0 48px 24px; }
+.site-header { min-height: 84px; }
+.wordmark { font-size: 32px; letter-spacing: -.035em; }
+.start-screen { max-width: none; }
+.camera-intro { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 60px; padding: 44px 0 36px; }
+.intro-copy h1 { font-family: "DM Serif Display", Georgia, serif; font-size: clamp(40px, 4.4vw, 66px); line-height: 1.07; letter-spacing: -.025em; font-weight: 400; }
+.intro-copy h1 em { color: #687054; font-style: italic; }
+.intro-copy > p:first-of-type { max-width: 34ch; margin-top: 23px; font-size: 18px; line-height: 1.6; }
+.start-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+.start-actions .primary-button { min-height: 50px; padding: 12px 23px; }
+.import-hint { font-size: 12px; margin-top: 12px; }
+.local-note { font-size: 12px; margin-top: 28px; }
+.intro-copy .resume-link { justify-content: flex-start; margin: 8px 0 0; font-size: 14px; }
+.camera-demo { max-width: 490px; width: 100%; justify-self: end; }
+.instant-camera { position: relative; background: #242623; padding: 22px 24px 17px; border-radius: 24px 24px 32px 32px; color: #eee9db; box-shadow: 0 18px 30px -15px #26251c80, inset 0 1px 1px #ffffff38, inset 0 -5px 3px #111; }
+.camera-nameplate { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 2px 17px; }
+.camera-nameplate > span:first-child { font-size: 25px; font-weight: 650; letter-spacing: -.04em; }
+.camera-indicator { font-size: 9px; letter-spacing: .14em; color: #c6c7b8; }
+.viewfinder-bezel { background: linear-gradient(145deg,#6f726b,#30332e 9%,#92958c 50%,#353831 91%); padding: 8px; border-radius: 13px; box-shadow: 0 2px 4px #0009; }
+.camera-display { position: relative; aspect-ratio: 1.42; overflow: hidden; background: #121812; border-radius: 8px; }
+.camera-display > img, .camera-display video { display: block; width: 100%; height: 100%; object-fit: contain; }
+.camera-display > img { object-fit: cover; filter: saturate(.6) contrast(.94); }
+.viewfinder-corners { position: absolute; inset: 34px 22px 22px; border: 1px solid #c6dc9d60; border-radius: 4px; pointer-events: none; }
+.viewfinder-corners::before, .viewfinder-corners::after { content: ""; position: absolute; width: 18px; height: 18px; border-color: #c6dc9d; border-style: solid; }
+.viewfinder-corners::before { left: -1px; top: -1px; border-width: 2px 0 0 2px; }
+.viewfinder-corners::after { right: -1px; bottom: -1px; border-width: 0 2px 2px 0; }
+.viewfinder-status { position: absolute; left: 17px; top: 13px; font-size: 9px; font-weight: 600; letter-spacing: .08em; color: #d0e5ad; text-shadow: 0 1px 3px #000; }
+.camera-hardware { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 6px 17px; }
+.camera-hardware-copy { display: flex; align-items: center; gap: 13px; font-size: 11px; line-height: 1.5; color: #d3d3c5; }
+.film-stripes { display: flex; width: 24px; height: 38px; transform: skew(-10deg); }
+.film-stripes i { flex: 1; background: #a5b29b; }.film-stripes i:nth-child(2) { background: #dbb665; }.film-stripes i:nth-child(3) { background: #ca684a; }
+.shutter { min-height: 65px; width: 65px; padding: 0; border: 6px solid #c3c3b7; border-radius: 50%; background: #a83425; color: #ffe7d8; box-shadow: 0 3px 8px #0009, inset 0 2px 3px #ea8b6a; }
+.shutter:hover:not(:disabled) { background: #c34530; }.shutter:active:not(:disabled) { scale: .95; }
+.ejection-slot { height: 9px; margin: 0 12px; border-radius: 4px; background: #090b09; box-shadow: 0 1px 0 #73776b; }
+.camera-footnote { display: flex; justify-content: space-between; gap: 10px; margin: 17px 7px 0; font-size: 10px; color: var(--muted); }
+.examples { border-top: 1px solid var(--line); padding-top: 24px; }
+.examples .section-heading { margin: 0 0 24px; align-items: flex-end; }.examples h2 { font-size: 22px; }.examples .section-heading p { margin-top: 6px; }
+.demo-disclosure { font-size: 11px; color: var(--muted); }
+.example-grid { grid-template-columns: repeat(3,minmax(0,1fr)) 1.1fr; gap: 30px; align-items: center; }
+.example-art { border: 0; width: 100%; height: auto; padding: 0; background: none; border-radius: 0; display: block; }
+.example-art:hover:not(:disabled) { background: none; }.example-art:hover .composition-preview { translate: 0 -4px; }
+.example-art .composition-preview { max-width: 200px; margin: auto; transition: translate 180ms var(--ease-smooth-out); filter: drop-shadow(0 5px 6px #403b2426); }
+.example-description { padding: 16px 0 0; text-align: center; }.example-description h3 { font-size: 15px; }.example-description p { font-size: 12px; margin-top: 5px; }
+.scrapbook-invite { padding-left: 26px; border-left: 1px solid var(--line); }.scrapbook-invite > svg { color: #687054; margin-bottom: 14px; }.scrapbook-invite h3 { font-family: "DM Serif Display",Georgia,serif; font-size: 27px; line-height: 1.15; }.scrapbook-invite p { margin-top: 12px; font-size: 13px; }.scrapbook-invite a { font-size: 13px; margin-top: 12px; }
+.project-about { margin-top: 40px; padding-top: 24px; }.project-about .eyebrow { display: none; }.project-about h2 { font-size: 16px; }.project-about .about-copy p { font-size: 12px; }.project-about .about-copy > p:first-child { display: none; }
+@media(max-width:900px) { .app-shell { padding-inline: 24px; }.camera-intro { gap: 28px; }.camera-footnote span:last-child { display: none; }.example-grid { gap: 18px; }.scrapbook-invite { padding-left: 18px; } }
+@media(max-width:650px) { .app-shell { padding: 0 18px 22px; }.site-header { min-height: 72px; gap: 10px; }.wordmark { font-size: 27px; }.site-header nav { gap: 0; }.site-header nav button { padding: 7px; font-size: 12px; }.site-header nav button span { display: none; }.camera-intro { grid-template-columns: 1fr; gap: 26px; padding: 30px 0; }.intro-copy h1 { font-size: 44px; }.intro-copy > p:first-of-type { font-size: 16px; margin-top: 16px; }.start-actions { margin-top: 19px; gap: 6px; }.start-actions .primary-button { padding-inline: 17px; }.local-note { margin-top: 12px; }.camera-demo { max-width: 420px; justify-self: center; }.instant-camera { padding: 18px 19px 15px; }.camera-display { aspect-ratio: 1.5; }.camera-footnote { margin-top: 12px; }.examples .section-heading { display: block; }.demo-disclosure { display: block; margin-top: 8px; }.example-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px 18px; }.example-art .composition-preview { max-width: 180px; }.scrapbook-invite { padding-left: 16px; }.scrapbook-invite h3 { font-size: 25px; }.project-about { margin-top: 30px; } }
+@media(prefers-reduced-motion:reduce) { .example-art .composition-preview { transition: none; }.example-art:hover .composition-preview { translate: none; }.shutter:active:not(:disabled) { scale: 1; } }
+/* Shared studio controls and phone layouts. */
+.header-controls { display:flex; align-items:center; gap:18px; }
+.scrapbook-nav { display:inline-flex; align-items:center; gap:7px; min-height:44px; font-size:13px; text-decoration:none; }.scrapbook-nav[aria-current] { color:var(--accent); }
+.sound-toggle { width:44px; padding:10px; }
+.page-heading { padding-block:28px 22px; }.page-heading h1 { font-family:"DM Serif Display",Georgia,serif; font-size:36px; letter-spacing:-.02em; }
+.editor-controls { background:var(--paper); }.workspace { background:#e6e4d6; }.categories button[aria-pressed=true] { color:var(--paper); background:#434e3d; }
+.presets { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }.presets .preset { min-width:0; }
+.position-controls { margin-block:15px; }.position-controls > span { font-size:13px; font-weight:600; }.position-controls .nudge-actions { display:flex; justify-content:flex-start; margin:5px 0; gap:4px; }.position-controls .nudge-actions button { min-width:44px; }
+.finished-art { padding:24px; }.finish-position { width:100%; max-width:360px; margin:auto; }.finish-draggable { touch-action:none; cursor:grab; }.finish-draggable:focus-visible { outline:3px solid #687054; outline-offset:6px; }.finish-draggable:active { cursor:grabbing; }.finish-adjustments { margin-top:18px; }.finish-options { gap:16px; }.finish-options > .secondary-button { margin:8px 0 16px; width:100%; }
+.camera-experience { width:520px; padding:24px; background:var(--paper); border:0; border-radius:16px; max-height:calc(100dvh - 40px); }
+.capture-heading { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:18px; }.camera-experience .capture-heading h2 { font-family:"DM Serif Display",Georgia,serif; font-size:28px; margin-bottom:6px; }.capture-heading p { font-size:13px; }.capture-mode { margin-bottom:16px; }.capture-mode button { flex:1; }
+.camera-experience .camera-display { aspect-ratio:1.4; }.camera-flip { color:#edeadb; border:1px solid #686c61; padding:10px; }.camera-flip:hover:not(:disabled) { background:#41473c; }.camera-message { position:absolute; inset:0; padding:42px 24px 20px; display:grid; place-items:center; color:#e2e5d5; font-size:14px; line-height:1.5; background:#151a15e8; text-align:center; }.camera-experience .countdown { position:absolute; inset:0; display:grid; place-items:center; font-size:68px; color:#fff; background:#10190f45; }
+.camera-upload { margin:12px auto 0; }.camera-experience.has-print .camera-display { display:none; }.camera-experience.has-print .viewfinder-bezel { display:none; }.camera-experience.has-print .camera-hardware { display:none; }.camera-experience.has-print .instant-camera { border-radius:16px; padding-block:14px; }.camera-experience.has-print .camera-nameplate { padding-bottom:12px; }
+.print-tray { overflow:hidden; padding:0 18px 12px; }.ejected-print { width:210px; margin:auto; padding-top:10px; }.print-paper { padding:12px 12px 26px; background:#fff9e9; box-shadow:0 8px 15px #3e35252b; }.print-paper img { display:block; width:100%; aspect-ratio:1; object-fit:contain; filter:saturate(.72) sepia(.15) contrast(.94); }.print-paper > span { display:block; text-align:center; font:16px Georgia,serif; color:#493e30; margin-top:14px; }.ejected-strip { width:115px; }.ejected-strip .print-paper { padding:7px 7px 12px; }.ejected-strip img { margin-bottom:5px; }.ejected-strip .print-paper > span { font-size:10px; }
+.shake-button { margin:0 auto 4px; }.capture-decisions { display:flex; gap:12px; margin:8px 0; }.capture-decisions button { flex:1; }.camera-experience > .field-hint { text-align:center; font-size:12px; }.camera-experience > .text-button { display:flex; }
+.book-save-actions { display:flex; gap:10px; flex-wrap:wrap; }.scrapbook-layout { display:grid; grid-template-columns:270px minmax(0,1fr); gap:28px; }.book-controls { background:var(--paper); padding:22px; border-radius:12px; }.book-controls .segmented { margin-bottom:20px; }.book-controls .segmented button { padding-inline:10px; flex:1; }.book-controls .field { margin-top:14px; }.book-add-actions { margin:17px 0; }.book-add-actions button { width:100%; }.book-controls .color-row { display:block; }.book-controls .color-row > div { margin-top:6px; display:flex; }.book-controls .color-row button { width:44px; height:44px; border:6px solid var(--paper); outline-offset:-5px; border-radius:50%; }.book-controls .color-row [aria-pressed=true] { outline:1px solid var(--ink); }
+.book-selected { margin-top:20px; padding-top:18px; border-top:1px solid var(--line); }.book-selected h2 { font-size:16px; margin-bottom:15px; }.book-order { display:flex; gap:6px; flex-wrap:wrap; margin-top:14px; }.book-order button { padding:8px; font-size:12px; }.book-selected .nudge-actions { display:flex; gap:4px; }.book-selected > .text-button { width:100%; justify-content:flex-start; padding-inline:0; font-size:13px; }.remove-photo { color:#a53d2b; }.tape-toggle { display:flex; align-items:center; gap:8px; font-size:13px; min-height:44px; }.tape-toggle input { width:20px; height:20px; accent-color:#687054; }.book-status { font-size:12px; margin-top:16px; }.book-controls > .field-hint { font-size:11px; margin-top:8px; }
+.book-workspace { min-width:0; background:#dedecf; border-radius:12px; padding:26px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:18px; }.scrapbook-paper { position:relative; width:100%; overflow:hidden; box-shadow:0 7px 18px #413d2821; container-type:inline-size; }.collage-paper::before { content:""; position:absolute; top:2.5%; bottom:5%; left:50%; width:1px; background:#dad1bf; }.strip-paper { max-width:300px; }.scrapbook-photo { position:absolute; padding:0; border:0; border-radius:0; min-height:0; background:transparent; touch-action:none; transition:none; }.scrapbook-photo:focus-visible { outline:3px solid #ac3d29; outline-offset:4px; }.scrapbook-photo[aria-pressed=true] { outline:2px solid #ac3d29; outline-offset:3px; }.scrapbook-photo img { display:block; width:100%; height:100%; pointer-events:none; user-select:none; }.collage-photo { box-shadow:0 4px 9px #30261430; cursor:grab; }.collage-photo:active { cursor:grabbing; }.with-tape::after { content:""; position:absolute; width:42%; height:8%; left:29%; top:-3%; background:#c8b184b3; transform:rotate(-4.5deg); pointer-events:none; }.strip-photo { overflow:hidden; }.strip-photo img { position:absolute; width:113.0435%; height:137.4506%; left:-6.5217%; top:-6.5217%; max-width:none; }.scrapbook-page-title { position:absolute; bottom:2.2%; left:5%; width:90%; text-align:center; font-family:Georgia,serif; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; pointer-events:none; }.strip-paper .scrapbook-page-title { bottom:1.4%; }.book-canvas-hint { font-size:12px; text-align:center; }.book-empty { min-height:400px; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; gap:18px; max-width:340px; }.book-empty h2 { font-family:"DM Serif Display",Georgia,serif; font-size:30px; }.book-empty p { font-size:14px; }.install-app .text-button { font-size:12px; padding-left:0; }.install-app p { max-width:60ch; }
+@media(max-width:1000px) { .header-controls { gap:8px; }.site-header nav { gap:4px; }.scrapbook-layout { grid-template-columns:240px minmax(0,1fr); gap:16px; }.book-workspace { padding:18px; } }
+@media(max-width:700px) {
+  .app-shell { padding-left:max(16px,env(safe-area-inset-left)); padding-right:max(16px,env(safe-area-inset-right)); padding-bottom:max(22px,env(safe-area-inset-bottom)); }
+  .site-header { display:grid; grid-template-columns:1fr 44px 44px; row-gap:0; column-gap:5px; padding-top:env(safe-area-inset-top); }
+  .wordmark { grid-row:1; grid-column:1; padding-block:12px; }.header-controls { display:contents; }.site-header nav { grid-row:2; grid-column:1/-1; width:100%; justify-content:space-between; padding-bottom:5px; }.site-header nav button { flex:1; font-size:13px; min-height:36px; }.site-header nav button span { display:none; }.scrapbook-nav { grid-row:1; grid-column:2; justify-content:center; }.scrapbook-nav span { display:none; }.sound-toggle { grid-row:1; grid-column:3; }
+  .page-heading { gap:16px; padding:22px 0 18px; }.page-heading h1 { font-size:30px; }.page-heading p { font-size:13px; }.editor-actions { flex-wrap:wrap; }.workspace { min-height:0; }.finished-art { padding:18px; }.finish-position { max-width:300px; }.finish-options { padding:20px 0; }.finish-adjustments .position-controls { margin-bottom:0; }
+  .modal-backdrop { padding:10px; padding-top:max(10px,env(safe-area-inset-top)); padding-bottom:max(10px,env(safe-area-inset-bottom)); }.camera-experience { padding:18px; max-height:calc(100dvh - 20px); }.camera-experience .instant-camera { padding:15px; }.camera-experience .camera-nameplate > span:first-child { font-size:23px; }.camera-experience .camera-indicator { font-size:8px; }.camera-experience .camera-hardware-copy { font-size:10px; gap:8px; }.camera-experience .shutter { min-height:58px; width:58px; flex-shrink:0; }.camera-experience .camera-hardware { gap:8px; padding-inline:0; }.camera-experience .camera-message { padding:35px 12px 14px; font-size:12px; }.camera-experience .capture-heading h2 { font-size:25px; }.camera-experience .camera-display { aspect-ratio:1.2; }
+  .scrapbook-screen .page-heading { display:block; }.book-save-actions { margin-top:16px; gap:8px; }.book-save-actions button { flex:1; font-size:13px; padding-inline:10px; }.scrapbook-layout { display:flex; flex-direction:column; gap:16px; }.book-workspace { order:-1; padding:15px; position:relative; }.book-controls { padding:20px; }.book-empty { min-height:260px; }.book-canvas-hint { font-size:11px; }.strip-paper { max-width:180px; }.book-controls .book-add-actions { display:flex; gap:8px; }.book-controls .book-add-actions button { width:auto; flex:1; }.book-controls .segmented { margin-bottom:15px; }.book-controls .color-row { display:flex; }.book-selected .range-control { margin-bottom:15px; }.book-order button { flex:1; min-height:44px; }
+}
+@media(max-width:370px) { .intro-copy h1 { font-size:38px; }.start-actions { gap:0; }.start-actions .primary-button { padding-inline:13px; }.upload-secondary { padding-inline:10px; font-size:14px; }.camera-hardware-copy { font-size:10px; }.camera-indicator { font-size:8px; }.book-save-actions button { font-size:12px; } }
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; }.scrapbook-photo { transition:none; } }
+
+/* Keep a long booth roll within reach of its controls on a phone. */
+.strip-workspace { max-height: 680px; overflow-y: auto; }
+.strip-paper { flex-shrink: 0; }
+@media(max-width:700px) { .strip-workspace { max-height: 410px; }.site-header nav button { min-height:44px; } }
+
+.book-control-fields { border:0; padding:0; margin:0; min-width:0; }
+.example-card { display:block; min-width:0; }.example-description { min-width:0; }.scrapbook-invite .text-button { max-width:100%; white-space:normal; }
+body { min-width:0; }
+

@@ -228,6 +228,14 @@ async function pointerSetup(c: Composition, tool: Tool = "move") {
   return host.querySelector("svg")!;
 }
 describe("real pointer gestures", () => {
+  it("moves the selected piece with arrow keys and Shift without changing its geometry", async () => {
+    const composition = initialComposition(), layer = composition.layers[0];
+    const svg = await pointerSetup(composition);
+    await act(async () => svg.dispatchEvent(new KeyboardEvent("keydown", {key: "ArrowRight", bubbles: true})));
+    expect(onMove.mock.calls.at(-1)?.[0].layers[0]).toMatchObject({x: layer.x + 1, y: layer.y, width: layer.width, height: layer.height});
+    await act(async () => svg.dispatchEvent(new KeyboardEvent("keydown", {key: "ArrowDown", shiftKey: true, bubbles: true})));
+    expect(onMove.mock.calls.at(-1)?.[0].layers[0]).toMatchObject({x: layer.x, y: layer.y + 10});
+  });
   it("prevents native text dragging while making consecutive cuts without changing tools", async () => {
     let composition = initialComposition();
     const svg = await pointerSetup(composition, "cut");

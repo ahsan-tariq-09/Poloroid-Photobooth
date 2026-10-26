@@ -1,6 +1,6 @@
 import { ArrowRight, Redo2, RotateCcw, Undo2 } from "lucide-react";
 import { useNavigate } from "react-router";
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import Stage from "../Stage";
 import EditorControls from "./EditorControls";
 import PieceMenu, { PieceContextMenu } from "./PieceMenu";
@@ -17,26 +17,51 @@ export default function EditScreen({
 }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const undo = useRef<HTMLButtonElement>(null), redo = useRef<HTMLButtonElement>(null);
+  const focusAfterHistory = useRef<"undo" | "redo" | null>(null);
+  const [viewportHeight, setViewportHeight] = useState(() => window.visualViewport?.height ?? window.innerHeight);
+  useEffect(() => {
+    const update = () => setViewportHeight(window.visualViewport?.height ?? window.innerHeight);
+    window.visualViewport?.addEventListener("resize", update);
+    window.addEventListener("resize", update);
+    return () => {window.visualViewport?.removeEventListener("resize", update); window.removeEventListener("resize", update);};
+  }, []);
+  useLayoutEffect(() => {
+    if (!focusAfterHistory.current) return;
+    const next = focusAfterHistory.current === "undo" ? undo.current : redo.current;
+    if (next && !next.disabled) next.focus({preventScroll: true});
+    focusAfterHistory.current = null;
+  }, [s.history]);
+  useEffect(() => { heading.current?.focus({preventScroll: true}); }, []);
   return (
     <main className="edit-screen">
       <div className="page-heading">
         <div>
-          <h1 tabIndex={-1}>Edit your Polaroid</h1>
+          <h1 ref={heading} tabIndex={-1}>Edit your Polaroid</h1>
           <p>Arrange photos, add pieces, or adjust the look.</p>
         </div>
         <div className="editor-actions">
           <div className="history-actions">
             <button
+              ref={undo}
               aria-label="Undo"
               disabled={!s.history.past.length}
-              onClick={s.undo}
+              onClick={e => {
+                if (s.history.past.length === 1 && document.activeElement === e.currentTarget) focusAfterHistory.current = "redo";
+                s.undo();
+              }}
             >
               <Undo2 size={16} /> Undo
             </button>
             <button
+              ref={redo}
               aria-label="Redo"
               disabled={!s.history.future.length}
-              onClick={s.redo}
+              onClick={e => {
+                if (s.history.future.length === 1 && document.activeElement === e.currentTarget) focusAfterHistory.current = "undo";
+                s.redo();
+              }}
             >
               <Redo2 size={16} /> Redo
             </button>
@@ -56,7 +81,7 @@ export default function EditScreen({
           </button>
         </div>
       </div>
-      <div className="edit-layout">
+      <div className="edit-layout" style={{"--editor-viewport-height": `${viewportHeight}px`} as CSSProperties}>
         <PieceContextMenu studio={s} onOpenChange={setMenuOpen}>
           <div className="workspace">
             <div className="canvas-toolbar">
