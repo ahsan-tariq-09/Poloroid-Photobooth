@@ -5,6 +5,9 @@ dist/
 *.tsbuildinfo
 test-results/
 playwright-report/
+.playwright-mcp/
+coverage/
+*.log
 .env*
 !.env.example
 .openai/
@@ -17,4 +20,5 @@ playwright-report/
 #Ignore vscode AI rules
 .github\instructions\codacy.instructions.md
 .openai/
+# Local documentation and editor AI rules
 /docs/
