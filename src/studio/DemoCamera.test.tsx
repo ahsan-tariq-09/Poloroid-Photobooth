@@ -13,7 +13,8 @@ it("loads film, keeps the print blank until shaken, opens the editor and rolls a
   const button=(label:string)=>host.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!;
   Object.defineProperty(HTMLImageElement.prototype,"naturalWidth",{configurable:true,value:640});
   Object.defineProperty(HTMLImageElement.prototype,"naturalHeight",{configurable:true,value:480});
-  vi.spyOn(HTMLCanvasElement.prototype,"getContext").mockReturnValue({drawImage:vi.fn(),getImageData:()=>({data:new Uint8ClampedArray([80,100,120,255]),width:1,height:1}),putImageData:vi.fn()} as never);
+  const draw=vi.fn();
+  vi.spyOn(HTMLCanvasElement.prototype,"getContext").mockReturnValue({drawImage:draw,getImageData:()=>({data:new Uint8ClampedArray([80,100,120,255]),width:1,height:1}),putImageData:vi.fn()} as never);
   vi.spyOn(HTMLCanvasElement.prototype,"toBlob").mockImplementation(cb=>cb(new Blob(["demo"])));
   URL.createObjectURL=vi.fn(()=>"blob:demo");URL.revokeObjectURL=vi.fn();
   try {
@@ -24,6 +25,7 @@ it("loads film, keeps the print blank until shaken, opens the editor and rolls a
     await act(async()=>button("Timer off").click());
     await act(async()=>button("Click demo shutter").click());
     expect(host.querySelector(".instant-print")).not.toBeNull();
+    expect(draw).toHaveBeenCalledWith(expect.any(HTMLImageElement),80,0,480,480,0,0,480,480);
     expect(button("Click demo shutter").disabled).toBe(true);
     expect(host.querySelector('img[alt="Your demo instant photo"]')).toBeNull();
     expect(host.querySelector(".demo-develop")).toBeNull();

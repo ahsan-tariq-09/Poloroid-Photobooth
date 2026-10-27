@@ -29,7 +29,7 @@ export default function DemoCamera({ busy, onDevelop }: { busy: boolean; onDevel
       if(!image?.naturalWidth)throw new Error("The demo photo is still loading. Try the shutter again.");
       const canvas=document.createElement("canvas");canvas.width=canvas.height=Math.min(image.naturalWidth,image.naturalHeight);
       const ctx=canvas.getContext("2d");if(!ctx)throw new Error("The demo could not develop. Try again.");
-      ctx.drawImage(image,0,0,canvas.width,canvas.height);ctx.putImageData(applyCameraFilm(ctx.getImageData(0,0,canvas.width,canvas.height),preset,flash),0,0);
+      ctx.drawImage(image,(image.naturalWidth-canvas.width)/2,(image.naturalHeight-canvas.height)/2,canvas.width,canvas.height,0,0,canvas.width,canvas.height);ctx.putImageData(applyCameraFilm(ctx.getImageData(0,0,canvas.width,canvas.height),preset,flash),0,0);
       playSound("shutter");if(flash&&enabled)setFlashFrame(n=>n+1);
       canvas.toBlob(blob=>{
         if(!alive.current||generation.current!==token)return;

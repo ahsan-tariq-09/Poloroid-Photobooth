@@ -4,13 +4,13 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import Camera from "./Camera";
 
-it("captures four separate frames, stops the camera and hands the strip to the builder", async () => {
+it.each([[640,480,80,0],[480,640,0,80]])("crops %s×%s video without stretching, captures four frames and hands the strip to the builder", async (width,height,sourceX,sourceY) => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   const stop=vi.fn(), capture=vi.fn(), host=document.createElement("div"), root=createRoot(host);
   document.body.append(host);
   Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia:vi.fn().mockResolvedValue({getTracks:()=>[{stop}]})}});
-  Object.defineProperty(HTMLVideoElement.prototype,"videoWidth",{configurable:true,value:640});
-  Object.defineProperty(HTMLVideoElement.prototype,"videoHeight",{configurable:true,value:480});
+  Object.defineProperty(HTMLVideoElement.prototype,"videoWidth",{configurable:true,value:width});
+  Object.defineProperty(HTMLVideoElement.prototype,"videoHeight",{configurable:true,value:height});
   const draw=vi.fn(),translate=vi.fn();
   vi.spyOn(HTMLCanvasElement.prototype,"getContext").mockReturnValue({drawImage:draw,translate,scale:vi.fn(),getImageData:vi.fn(()=>({data:new Uint8ClampedArray([80,100,120,255]),width:1,height:1})),putImageData:vi.fn()} as never);
   const toBlob=vi.spyOn(HTMLCanvasElement.prototype,"toBlob").mockImplementation(cb=>cb(new Blob(["frame"],{type:"image/png"})));
@@ -23,8 +23,8 @@ it("captures four separate frames, stops the camera and hands the strip to the b
     await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!.click());
     await act(async()=>vi.advanceTimersByTimeAsync(13200));
     expect(toBlob).toHaveBeenCalledTimes(4); expect(stop).toHaveBeenCalled();
-    // A landscape video must produce the same edge-to-edge square seen in the viewfinder.
-    expect(draw).toHaveBeenCalledWith(host.querySelector("video"),0,0,480,480);
+    // Both orientations crop a square source, rather than distorting the full frame.
+    expect(draw).toHaveBeenCalledWith(host.querySelector("video"),sourceX,sourceY,480,480,0,0,480,480);
     expect(translate).toHaveBeenCalledWith(480,0);
     expect(host.querySelectorAll('img[alt="Your captured photo"]')).toHaveLength(0);
     expect(host.querySelector(".capture-decisions")).toBeNull();

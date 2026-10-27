@@ -61,13 +61,13 @@ export default function Camera({onClose, onCapture, onUpload, enabled}: {
       if(!alive.current||!captureRunning.current||generation.current!==token)return;
       const v=video.current;
       if(!v?.videoWidth||!v.videoHeight){fail("The camera is still warming up. Try the shutter again.");return;}
-      // Match the square, stretched viewfinder in the saved pixels too.
+      // Match the centered square preview without stretching the source.
       const canvas=document.createElement("canvas");canvas.width=canvas.height=Math.min(v.videoWidth,v.videoHeight);
       const ctx=canvas.getContext("2d");
       if(!ctx){fail("That photo could not be captured. Try again.");return;}
       try{
         if(facing==="user"){ctx.translate(canvas.width,0);ctx.scale(-1,1);}
-        ctx.drawImage(v,0,0,canvas.width,canvas.height);
+        ctx.drawImage(v,(v.videoWidth-canvas.width)/2,(v.videoHeight-canvas.height)/2,canvas.width,canvas.height,0,0,canvas.width,canvas.height);
         ctx.putImageData(applyCameraFilm(ctx.getImageData(0,0,canvas.width,canvas.height),preset,flash),0,0);
       }catch{fail("That photo could not be captured. Try again.");return;}
       playSound("shutter");setCount(null);if(flash&&motionEnabled.current)setFlashFrame(n=>n+1);

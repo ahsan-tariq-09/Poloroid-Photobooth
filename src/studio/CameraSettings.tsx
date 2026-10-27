@@ -16,6 +16,6 @@ export default function CameraSettings({seconds,onSeconds,preset,onPreset,flash,
       </div><span className="hardware-value">{seconds?`${seconds} seconds`:"No delay"}</span>
     </fieldset>
     <fieldset className="film-presets" disabled={disabled}><legend>Film presets</legend>{filmPresets.map((value,index)=><button key={value} type="button" aria-pressed={preset===value} onClick={()=>onPreset(value)}><i className={`film-cartridge cartridge-${index}`} aria-hidden="true"/><span>{value}</span></button>)}</fieldset>
-    <div className="flash-control"><span>Flash</span><button type="button" className="flash-switch" role="switch" aria-label="Flash effect" aria-checked={flash} disabled={disabled} onClick={()=>onFlash(!flash)}><i className="flash-lever" aria-hidden="true"/><Zap size={16}/><i className="flash-led" aria-hidden="true"/></button><span className="hardware-value">{flash?"On":"Off"}</span></div>
+    <div className="flash-control"><span>Flash</span><div className="flash-toggle"><span className="flash-position" aria-hidden="true">On</span><button type="button" className="flash-switch" role="switch" aria-label="Flash effect" aria-checked={flash} disabled={disabled} onClick={()=>onFlash(!flash)}><i className="flash-lever" aria-hidden="true"/><Zap size={16}/><i className="flash-led" aria-hidden="true"/></button><span className="flash-position" aria-hidden="true">Off</span></div></div>
   </div>;
 }
