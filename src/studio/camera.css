@@ -1,4 +1,5 @@
 /* Leather, machined metal and real controls, adapted from the supplied Canva camera. */
+@font-face { font-family:"Caveat"; font-style:normal; font-weight:400 700; font-display:swap; src:url('/fonts/caveat/Caveat.ttf') format('truetype'); }
 .camera-intro { grid-template-columns: minmax(0,1fr); gap:24px; padding:30px 0 36px; justify-items:center; }
 .intro-copy { text-align:center; max-width:760px; }
 .intro-copy h1 { font-size:clamp(32px,4vw,48px); line-height:1.12; }
@@ -17,6 +18,8 @@
 .camera-display,.camera-experience .camera-display { aspect-ratio:1; border:2px solid #090c08; border-radius:0; }
 .camera-display > img { object-fit:cover; filter:none; }
 .camera-display > video { object-fit:cover; }
+.camera-demo .camera-display > img { filter:brightness(.93); }
+.demo-film-preview { position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover; }
 .camera-screw { position:absolute; width:6px; height:6px; background:linear-gradient(45deg,#b5baab 40%,#24291f 42%,#24291f 57%,#b5baab 60%); border-radius:50%; box-shadow:0 1px 2px #000; }
 .screw-tl { top:4px;left:4px; }.screw-tr { top:4px;right:4px; }.screw-bl { bottom:4px;left:4px; }.screw-br { bottom:4px;right:4px; }
 .viewfinder-status { font-size:9px; letter-spacing:.05em; background:#142012dd; padding:5px 7px; top:8px; left:8px; right:auto; }
@@ -83,7 +86,7 @@
 .instant-photo-window img { display:block; width:100%; height:100%; object-fit:cover; user-select:none; }
 .instant-strip .instant-photo-window + .instant-photo-window { margin-top:4%; }
 .undeveloped-photo { width:100%; height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; background:linear-gradient(130deg,#4c584a,#263b32); color:#f7f0d9; font-size:clamp(12px,2vw,18px); }
-.instant-caption { display:grid; flex:1; place-items:center; min-height:0; overflow-wrap:anywhere; text-align:center; padding:8px 0; color:#554732; font:clamp(14px,2vw,20px)/1.3 Georgia,serif; }
+.instant-caption { display:grid; flex:1; place-items:center; min-height:0; overflow-wrap:anywhere; text-align:center; padding:8px 0; color:#554732; font:500 clamp(19px,2vw,27px)/1.25 "Caveat",cursive; }
 .instant-strip .instant-caption { margin-top:5%; }
 .print-reveal-actions { text-align:center; margin:4px 0 16px; }
 .print-action-row { display:flex; justify-content:center; align-items:stretch; gap:10px; margin:0 auto; max-width:440px; }

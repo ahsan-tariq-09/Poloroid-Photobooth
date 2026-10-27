@@ -79,6 +79,8 @@ export function initialComposition(assetId = "sample"): Composition {
     layers: [photoLayer(assetId)],
     effects: { film: 0, copier: 0, seed: 76 },
     caption: "",
+    captionFont: "caveat",
+    captionSize: 32,
     frameColor: "#fff9e9",
   };
 }

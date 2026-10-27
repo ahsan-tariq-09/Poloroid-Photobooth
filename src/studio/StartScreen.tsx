@@ -5,10 +5,11 @@ import { examples, loadSample, type ExampleDefinition } from "./examples";
 import type { Assets } from "../model";
 import CompositionPreview from "./CompositionPreview";
 import DemoCamera from "./DemoCamera";
+import type { CameraPreferences } from "./CameraSettings";
 
-export default function StartScreen({busy, hasSession, onUpload, onCamera, onExample, onDemoPhoto}: {
-  busy: boolean; hasSession: boolean; onUpload: () => void; onCamera: () => void;
-  onExample: (example: ExampleDefinition) => void; onDemoPhoto:(file:File)=>void;
+export default function StartScreen({busy, hasSession, onUpload, onCamera, onExample}: {
+  busy: boolean; hasSession: boolean; onUpload: () => void; onCamera: (settings?:CameraPreferences) => void;
+  onExample: (example: ExampleDefinition) => void;
 }) {
   const [assets, setAssets] = useState<Assets | null>(null);
   const location = useLocation();
@@ -25,10 +26,10 @@ export default function StartScreen({busy, hasSession, onUpload, onCamera, onExa
         <p>Make an instant photo, leave a few words, and keep it somewhere good.</p>
       </div>
       <div className="start-actions">
-          <button className="primary-button" aria-label="Take a photo" disabled={busy} onClick={onCamera}><Camera size={19}/> Take a photo</button>
+          <button className="primary-button" aria-label="Take a photo" disabled={busy} onClick={()=>onCamera()}><Camera size={19}/> Take a photo</button>
           <button className="text-button upload-secondary" disabled={busy} onClick={onUpload}><Upload size={17}/>{busy ? "Opening photos…" : "Upload photos"}</button>
         </div>
-      <DemoCamera busy={busy} onDevelop={onDemoPhoto}/>
+      <DemoCamera busy={busy} onCamera={onCamera}/>
       <div className="camera-start">
         <p className="import-hint">Or drop photos here. JPG, PNG, HEIC and SVG.</p>
         <p className="local-note">Made on your device. Your photos stay yours.</p>

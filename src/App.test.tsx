@@ -781,7 +781,7 @@ describe("photo-first navigation and sessions", () => {
       expect(window.location.pathname).toBe(destination);
       if (destination === "/finish") await click('a[href="/edit"]');
       expect(comp().layers[0].name).toBe("camera-photo.png");
-      expect(comp().caption).toBe("");
+      expect(comp()).toMatchObject({caption:"Just now.",captionFont:"caveat",captionSize:32});
       expect(stop).toHaveBeenCalled();
     } finally {
       vi.useRealTimers();

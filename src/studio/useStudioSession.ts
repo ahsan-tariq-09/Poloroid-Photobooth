@@ -197,7 +197,7 @@ export function useStudioSession() {
               const added = photoLayer(id, value.name, 0, value);
               resetSession(
                 { [id]: value },
-                { ...initialComposition(), effects: {film: processed ? 0 : .65, copier: 0, seed: 76}, layers: [added] },
+                { ...initialComposition(), caption: processed ? "Just now." : "", effects: {film: processed ? 0 : .65, copier: 0, seed: 76}, layers: [added] },
               );
             } else {
               const added = photoLayer(

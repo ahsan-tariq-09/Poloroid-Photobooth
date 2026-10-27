@@ -5,7 +5,7 @@ import { playSound } from "../sounds";
 import { createPhoneShakeDetector } from "./phoneShake";
 
 type MotionAccess = typeof DeviceMotionEvent & { requestPermission?: () => Promise<"granted" | "denied"> };
-export const PHOTO_DEVELOPMENT_MS = 9000;
+export const PHOTO_DEVELOPMENT_MS = 10000;
 
 /** Owns the blank-to-developed print, gestures, and optional phone sensor access. */
 export default function InstantPrint({ photos, caption, enabled, onReveal, onRetake }: {

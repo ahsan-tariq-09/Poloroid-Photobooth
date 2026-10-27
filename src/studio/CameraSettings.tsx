@@ -3,6 +3,7 @@ export const timerStops = [0,3,5,10] as const;
 export type TimerSeconds = typeof timerStops[number];
 export const filmPresets = ["Classic","B&W","Film Grain","Faded"] as const;
 export type FilmPreset = typeof filmPresets[number];
+export type CameraPreferences = { seconds:TimerSeconds; preset:FilmPreset; flash:boolean };
 
 export default function CameraSettings({seconds,onSeconds,preset,onPreset,flash,onFlash,disabled}: {
   seconds:TimerSeconds;onSeconds:(value:TimerSeconds)=>void;preset:FilmPreset;onPreset:(value:FilmPreset)=>void;

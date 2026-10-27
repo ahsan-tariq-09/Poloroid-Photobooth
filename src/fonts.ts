@@ -21,7 +21,9 @@ export const fonts = [
   ].map(([name, group]) => ({
     id: name.toLowerCase().replaceAll(" ", "-"), name,
     family: `"${name}", ${STUDIO_FONT}`, group,
-    stylesheet: `https://fonts.googleapis.com/css2?family=${name.replaceAll(" ", "+")}:wght@400&display=swap`,
+    ...(name === "Caveat" ? {source: "/fonts/caveat/Caveat.ttf"}
+      : name === "Permanent Marker" ? {source: "/fonts/permanent-marker/PermanentMarker-Regular.ttf"}
+      : {stylesheet: `https://fonts.googleapis.com/css2?family=${name.replaceAll(" ", "+")}:wght@400&display=swap`}),
   })),
   {
     id: "ransom-note", name: "Ransom note · Lindbergh Baby",
@@ -53,10 +55,9 @@ export async function loadFont(id = "studio", text = "Polaroid", style: FontStyl
   let sheet = stylesheets.get(key);
   if (!sheet) {
     if ("source" in font) {
-      // The original OFL font from Font Library is served unchanged with the app;
-      // its provider's hotlink endpoint does not reliably allow browser CORS.
+      // Bundled faces load without a network font provider, including offline exports.
       const style = document.createElement("style");
-      style.textContent = `@font-face {font-family:"LindberghBabyRegular";src:url("${font.source}") format("truetype");font-style:normal;font-weight:400;font-display:swap;}`;
+      style.textContent = `@font-face {font-family:${font.family.split(",")[0]};src:url("${font.source}") format("truetype");font-style:normal;font-weight:${weight};font-display:swap;}`;
       document.head.append(style); sheetElements.set(key, style);
       sheet = Promise.resolve();
     } else sheet = new Promise<void>((resolve, reject) => {

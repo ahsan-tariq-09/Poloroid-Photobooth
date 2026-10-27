@@ -17,6 +17,7 @@ import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { X, Volume2, VolumeX, BookOpen } from "lucide-react";
 import { ACCEPT } from "./imports";
 import Camera from "./Camera";
+import type { CameraPreferences } from "./studio/CameraSettings";
 import { useStudioMotion } from "./useStudioMotion";
 import { useStudioSession, type Screen } from "./studio/useStudioSession";
 import { Dialog } from "./studio/shared";
@@ -62,7 +63,7 @@ function StudioApp() {
     navigate = useNavigate();
   const input = useRef<HTMLInputElement>(null);
   const intent = useRef<"replace" | "add">("replace");
-  const [camera, setCamera] = useState(false),
+  const [camera, setCamera] = useState<boolean | CameraPreferences>(false),
     [dragging, setDragging] = useState(false);
   const [replacement, setReplacement] = useState<null | (() => void)>(null);
   const path = location.pathname;
@@ -207,12 +208,11 @@ function StudioApp() {
                 busy={s.busy}
                 hasSession={s.hasSession}
                 onUpload={() => openUpload("replace")}
-                onCamera={() => {
+                onCamera={(settings) => {
                   intent.current = "replace";
                   cameraForBook.current = false;
-                  setCamera(true);
+                  setCamera(settings ?? true);
                 }}
-                onDemoPhoto={file=>importFiles([file],"replace","/edit",true)}
                 onExample={tryExample}
               />
             }
@@ -273,6 +273,7 @@ function StudioApp() {
           {camera && (
             <Camera
               enabled={enabled}
+              initialSettings={camera === true ? undefined : camera}
               onClose={() => setCamera(false)}
               onCapture={(files, destination) => {
                 setCamera(false);

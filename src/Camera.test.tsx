@@ -4,6 +4,34 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import Camera from "./Camera";
 
+it("replaces the connecting status when camera permission is denied",async()=>{
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+  Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia:vi.fn().mockRejectedValue(new DOMException("Denied","NotAllowedError"))}});
+  const host=document.createElement("div"),root=createRoot(host);document.body.append(host);
+  try{
+    await act(async()=>root.render(<Camera enabled={false} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));
+    expect(host.querySelector('.viewfinder-status')!.textContent).toBe("CAMERA UNAVAILABLE");
+    expect(host.querySelector('[role="status"]')!.textContent).toContain("permission was declined");
+    expect(host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!.disabled).toBe(true);
+    expect([...host.querySelectorAll('button')].find(b=>b.textContent?.includes("Upload a photo instead"))!.disabled).toBe(false);
+  }finally{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();}
+});
+
+it("starts with the settings and loaded film chosen on the home camera",async()=>{
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+  Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia:vi.fn().mockResolvedValue({getTracks:()=>[{stop:vi.fn()}]})}});
+  const host=document.createElement("div"),root=createRoot(host);document.body.append(host);
+  try{
+    await act(async()=>root.render(<Camera initialSettings={{seconds:5,preset:"B&W",flash:true}} enabled={false} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));
+    await act(async()=>host.querySelector('video')!.dispatchEvent(new Event('loadeddata',{bubbles:true})));
+    expect(host.querySelector('[aria-label="Timer 5 seconds"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect([...host.querySelectorAll('button')].find(b=>b.textContent==='B&W')!.getAttribute('aria-pressed')).toBe('true');
+    expect(host.querySelector('[aria-label="Flash effect"]')!.getAttribute('aria-checked')).toBe('true');
+    expect(host.querySelector('[aria-label="Roll film"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!.disabled).toBe(false);
+  }finally{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();}
+});
+
 it.each([[640,480,80,0],[480,640,0,80]])("crops %s×%s video without stretching, captures four frames and hands the strip to the builder", async (width,height,sourceX,sourceY) => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   const stop=vi.fn(), capture=vi.fn(), host=document.createElement("div"), root=createRoot(host);

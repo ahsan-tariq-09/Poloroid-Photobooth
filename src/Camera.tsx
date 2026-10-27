@@ -3,14 +3,15 @@ import { X, RefreshCw, Upload, ArrowRight, Check } from "lucide-react";
 import { motion, useIsPresent } from "motion/react";
 import InstantCamera from "./studio/InstantCamera";
 import InstantPrint from "./studio/InstantPrint";
-import CameraSettings, { type TimerSeconds, type FilmPreset } from "./studio/CameraSettings";
+import CameraSettings, { type TimerSeconds, type FilmPreset, type CameraPreferences } from "./studio/CameraSettings";
 import { applyCameraFilm } from "./studio/cameraFilm";
 import { playSound, unlockSound } from "./sounds";
 
 export type CaptureDestination = "edit" | "finish" | "scrapbook";
-export default function Camera({onClose, onCapture, onUpload, enabled}: {
+export default function Camera({onClose, onCapture, onUpload, enabled, initialSettings}: {
   onClose: () => void; onCapture: (files: File[], destination: CaptureDestination) => void;
   onUpload: () => void; enabled: boolean;
+  initialSettings?: CameraPreferences;
 }) {
   const present = useIsPresent(), video=useRef<HTMLVideoElement>(null), stream=useRef<MediaStream|null>(null);
   const container=useRef<HTMLDivElement>(null), alive=useRef(true), timer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -18,11 +19,11 @@ export default function Camera({onClose, onCapture, onUpload, enabled}: {
   const [error,setError]=useState(""), [ready,setReady]=useState(false), [count,setCount]=useState<number|null>(null);
   const [facing,setFacing]=useState<"user"|"environment">("user"), [shots,setShots]=useState(1), [shot,setShot]=useState(0);
   const [prints,setPrints]=useState<{file:File;url:string}[]>([]), [revealed,setRevealed]=useState(false), [restart,setRestart]=useState(0);
-  const [seconds,setSeconds]=useState<TimerSeconds>(3), [preset,setPreset]=useState<FilmPreset>("Classic"), [flash,setFlash]=useState(false), [flashFrame,setFlashFrame]=useState(0);
+  const [seconds,setSeconds]=useState<TimerSeconds>(initialSettings?.seconds ?? 3), [preset,setPreset]=useState<FilmPreset>(initialSettings?.preset ?? "Classic"), [flash,setFlash]=useState(initialSettings?.flash ?? false), [flashFrame,setFlashFrame]=useState(0);
   const motionEnabled=useRef(enabled);motionEnabled.current=enabled;
   const captured=prints.length>0;
   useEffect(()=>{if(!enabled)setFlashFrame(0);},[enabled]);
-  const [filmLoaded,setFilmLoaded]=useState(false);
+  const [filmLoaded,setFilmLoaded]=useState(Boolean(initialSettings));
   const roll=()=>{playSound("paper");setFilmLoaded(true);if(captured){container.current?.focus();urls.current.forEach(url=>URL.revokeObjectURL(url));urls.current=[];setPrints([]);setRevealed(false);setRestart(n=>n+1);}};
   const stop=()=>{stream.current?.getTracks().forEach(t=>t.stop());stream.current=null;if(timer.current)clearTimeout(timer.current);};
   useEffect(()=>{
@@ -92,7 +93,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled}: {
       {!captured&&<div className="capture-mode segmented" aria-label="Camera mode"><button aria-pressed={shots===1} disabled={shot>0} onClick={()=>setShots(1)}>Single Polaroid</button><button aria-pressed={shots===4} disabled={shot>0} onClick={()=>setShots(4)}>4-shot strip</button></div>}
       <InstantCamera printed={captured} print={captured?<InstantPrint photos={prints.map(p=>({src:p.url,alt:"Your captured photo"}))} caption={prints.length>1?"Four little moments":"Just now."} enabled={enabled} onReveal={()=>setRevealed(true)} onRetake={roll}/>:undefined}
         settings={<CameraSettings seconds={seconds} onSeconds={setSeconds} preset={preset} onPreset={setPreset} flash={flash} onFlash={setFlash} disabled={shot>0}/>}
-        onRoll={roll} rollDisabled={shot>0||(!ready&&!captured)} loaded={filmLoaded} onShutter={take} disabled={!ready||!filmLoaded||shot>0||captured} label="Capture" status={captured?"PRINT READY":shot?`SHOT ${shot} OF ${shots}`:ready?(filmLoaded?`READY · ${seconds?`TIMER ${seconds}s`:"TIMER OFF"}`:"ROLL TO LOAD FILM"):"CONNECTING CAMERA"} controls={!captured?<button className="camera-flip" aria-label="Flip camera" disabled={shot>0} onClick={()=>setFacing(f=>f==="user"?"environment":"user")}><RefreshCw size={18}/></button>:undefined}>
+        onRoll={roll} rollDisabled={shot>0||(!ready&&!captured)} loaded={filmLoaded} onShutter={take} disabled={!ready||!filmLoaded||shot>0||captured} label="Capture" status={captured?"PRINT READY":shot?`SHOT ${shot} OF ${shots}`:ready?(filmLoaded?`READY · ${seconds?`TIMER ${seconds}s`:"TIMER OFF"}`:"ROLL TO LOAD FILM"):error?"CAMERA UNAVAILABLE":"CONNECTING CAMERA"} controls={!captured?<button className="camera-flip" aria-label="Flip camera" disabled={shot>0} onClick={()=>setFacing(f=>f==="user"?"environment":"user")}><RefreshCw size={18}/></button>:undefined}>
         <video ref={video} autoPlay playsInline muted style={{transform:facing==="user"?"scaleX(-1)":undefined}} onLoadedData={()=>setReady(true)}/>
         {!captured&&<span className={!ready||error?"camera-message":"sr-only"} role="status">{error||(!ready?"Waiting for your camera…":filmLoaded?"Film loaded. Click the shutter.":"Camera ready. Roll the film, then click the shutter.")}</span>}
         {count!==null&&<span className="countdown" aria-live="assertive">{count}</span>}
