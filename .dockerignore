@@ -1,6 +1,9 @@
 node_modules
 dist
 .git
+.agents
+.impeccable
+AGENTS.md
 .sites-runtime
 .sites-checkout
 docs

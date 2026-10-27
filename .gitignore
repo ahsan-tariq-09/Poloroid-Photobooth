@@ -9,3 +9,12 @@ playwright-report/
 !.env.example
 .openai/
 .vercel/
+.agents/skills/impeccable/scripts/bin/
+.impeccable/
+.agents/
+
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md
+.openai/
+.docs/

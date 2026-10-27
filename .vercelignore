@@ -5,6 +5,9 @@ dist
 .sites-runtime
 .sites-checkout
 .openai
+.agents
+.impeccable
+AGENTS.md
 docs
 test-results
 playwright-report
