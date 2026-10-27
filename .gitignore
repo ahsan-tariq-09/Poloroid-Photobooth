@@ -17,4 +17,4 @@ playwright-report/
 #Ignore vscode AI rules
 .github\instructions\codacy.instructions.md
 .openai/
-.docs/
+/docs/

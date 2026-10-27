@@ -68,7 +68,7 @@ Print prepares one Polaroid with an outer frame of **88 × 107 mm**, centered on
 
 Project-local design and animation skills from Transitions.dev, Impeccable,
 GSAP, and Make Interfaces Feel Better are installed for future development.
-See [the skill inventory and usage guide](docs/DESIGN-SKILLS.md). These are
+See the local skill inventory and usage guide at `docs/DESIGN-SKILLS.md`. These are
 agent tools; installing them does not change the running website.
 
 Motion for React animates tool selection, panel changes, dialogs, camera countdown, print ejection and download confirmation. The Polaroid enters the workspace and reveals its photo; dragged pieces lift and settle, inserted collage elements land on the paper, and cuts briefly show their seam. Shake and sound are optional presentation effects, separate from composition state and undo history. Downloads and printing use the final framed composition. Warm film, Original and Black & white offer distinct photo treatments alongside Copy shop.
@@ -107,26 +107,26 @@ Install Polaroid uses the browser's install prompt when available and otherwise 
 - `src/scrapbook.ts`, `src/studio/useScrapbook.ts`, `src/studio/ScrapbookScreen.tsx`: local page storage, editable memories and collage/strip rendering.
 - `src/service-worker.js`, `vite.config.ts`, `public/manifest.webmanifest`: production offline cache generation and installation metadata.
 - `public/frames`: the three unchanged STL files supplied for this project.
-- `docs/inspiration`: the supplied references used for the design, retained as documentation rather than displayed as stock website screenshots.
+- `docs/inspiration`: local supplied references used for the design, excluded from Git.
 - `.openai/hosting.json`: retained identity for the earlier Sites preview; the public delivery target is Vercel.
 
 ## Validation
 
 The final redesign passed 100 automated tests, typecheck and the production build after the service-worker cache fix. Chrome checks covered an offline reload with the server stopped, create/edit/finish, adding to the scrapbook, explicit save and reopen, and an actual 720 × 800 single-shot-strip PNG download. Collage output is 2000 × 1560 pixels. Layouts were inspected at 320px, 390px and 1280px. Physical camera capture and installation on real iOS/Android devices remain untested. This redesign has not been deployed.
 
-The [audit fixes and font verification](docs/UI-UX-FIXES.md), [original audit](docs/UI-UX-AUDIT.md), and [earlier validation coverage](docs/VALIDATION.md) retain historical context; the current workflow and limitations are described above.
+Local documentation in `docs/` is excluded from Git and is not required to build or run the app. Audit fixes and font verification (`docs/UI-UX-FIXES.md`), the original audit (`docs/UI-UX-AUDIT.md`), and earlier validation coverage (`docs/VALIDATION.md`) retain historical context; the current workflow and limitations are described above.
 
 ## References and credits
 
 The design follows the supplied **Design Document for Photobooth**, by Ahsan Tariq, Nairran Zargar, and Md Toha Tawsif. The interaction is a square Polaroid disrupted through cutting, layering, adhesive and analog distortion.
 
-See [the design reference map](docs/DESIGN.md) for the actual inspiration images and how they shaped the interface. Original sample imagery and its generation prompt are documented there.
+The local design reference map at `docs/DESIGN.md` records the inspiration images and how they shaped the interface. Original sample imagery and its generation prompt are documented there.
 
 Supplied models:
 
 - [Magnetic Photo Frame (Polaroid/Instax style)](https://www.printables.com/model/149884-magnetic-photo-frame-polaroidinstax-style/files): `frame-polaroid-part1.stl`, `frame-polaroid-part2.stl`.
 - [Polaroid frame](https://www.printables.com/model/155872-polaroid-frame/files): `polaroid frame.stl`.
 
-The existing GPL-3.0 repository license is preserved. Supplied third-party references and STL models retain their original rights; consult their source listings. Dependency license notices accompany their packages.
+The existing GPL-3.0 repository license is preserved. Supplied third-party references and STL models retain their original rights; consult their source listings. Dependency license notices accompany their packages. See [HEIC encoder sources and notices](ENCODER-NOTICES.md) for encoder attribution.
 
-Current camera refinement: [centered leather camera, Roll/Click demo and image provenance](docs/redesign/CAMERA-REFINEMENT.md).
+Current camera refinement: centered leather camera, Roll/Click demo and image provenance are documented locally at `docs/redesign/CAMERA-REFINEMENT.md`.
