@@ -27,9 +27,9 @@ export default function DemoCamera({ busy, onDevelop }: { busy: boolean; onDevel
     try{
       const image=source.current;
       if(!image?.naturalWidth)throw new Error("The demo photo is still loading. Try the shutter again.");
-      const canvas=document.createElement("canvas");canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
+      const canvas=document.createElement("canvas");canvas.width=canvas.height=Math.min(image.naturalWidth,image.naturalHeight);
       const ctx=canvas.getContext("2d");if(!ctx)throw new Error("The demo could not develop. Try again.");
-      ctx.drawImage(image,0,0);ctx.putImageData(applyCameraFilm(ctx.getImageData(0,0,canvas.width,canvas.height),preset,flash),0,0);
+      ctx.drawImage(image,0,0,canvas.width,canvas.height);ctx.putImageData(applyCameraFilm(ctx.getImageData(0,0,canvas.width,canvas.height),preset,flash),0,0);
       playSound("shutter");if(flash&&enabled)setFlashFrame(n=>n+1);
       canvas.toBlob(blob=>{
         if(!alive.current||generation.current!==token)return;
@@ -41,6 +41,7 @@ export default function DemoCamera({ busy, onDevelop }: { busy: boolean; onDevel
   },[count,preset,flash]);
   useEffect(()=>{const hide=()=>{if(document.hidden){generation.current++;setCount(null);setProcessing(false);}};document.addEventListener("visibilitychange",hide);return()=>document.removeEventListener("visibilitychange",hide);},[]);
   return <div className="camera-demo">
+    {!printed&&<p className={`demo-instruction ${phase==="empty"?"roll-instruction":""}`} role="status">{error|| (phase==="empty"?"Turn the Roll film knob, then click.":count!==null?"Hold still. Your photo is on its way.":"Film loaded. Click the red shutter.")}</p>}
     <InstantCamera onRoll={roll} rollDisabled={locked} loaded={phase==="loaded"}
       onShutter={()=>{setError("");setCount(seconds);}} disabled={locked||phase!=="loaded"} label="Click demo shutter"
       settings={<CameraSettings seconds={seconds} onSeconds={setSeconds} preset={preset} onPreset={setPreset} flash={flash} onFlash={setFlash} disabled={locked}/>}
@@ -50,7 +51,6 @@ export default function DemoCamera({ busy, onDevelop }: { busy: boolean; onDevel
       {count!==null&&count>0&&<span className="countdown" aria-live="assertive">{count}</span>}
     </InstantCamera>
     {enabled&&flashFrame>0&&<motion.div key={flashFrame} className="capture-flash" aria-hidden="true" initial={{opacity:.28}} animate={{opacity:0}} transition={{duration:.32}} onAnimationComplete={()=>setFlashFrame(0)}/>}
-    {!printed&&<p className={`demo-instruction ${phase==="empty"?"roll-instruction":""}`} role="status">{error|| (phase==="empty"?"Start here: turn the Roll film knob, then click.":count!==null?"Hold still. Your photo is on its way.":"Film loaded. Click the red shutter.")}</p>}
     {phase==="revealed"&&photo&&<button className="text-button demo-develop" disabled={busy} onClick={()=>onDevelop(photo.file)}>Make this photo yours →</button>}
   </div>;
 }

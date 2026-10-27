@@ -61,12 +61,13 @@ export default function Camera({onClose, onCapture, onUpload, enabled}: {
       if(!alive.current||!captureRunning.current||generation.current!==token)return;
       const v=video.current;
       if(!v?.videoWidth||!v.videoHeight){fail("The camera is still warming up. Try the shutter again.");return;}
-      const canvas=document.createElement("canvas");canvas.width=v.videoWidth;canvas.height=v.videoHeight;
+      // Match the square, stretched viewfinder in the saved pixels too.
+      const canvas=document.createElement("canvas");canvas.width=canvas.height=Math.min(v.videoWidth,v.videoHeight);
       const ctx=canvas.getContext("2d");
       if(!ctx){fail("That photo could not be captured. Try again.");return;}
       try{
         if(facing==="user"){ctx.translate(canvas.width,0);ctx.scale(-1,1);}
-        ctx.drawImage(v,0,0);
+        ctx.drawImage(v,0,0,canvas.width,canvas.height);
         ctx.putImageData(applyCameraFilm(ctx.getImageData(0,0,canvas.width,canvas.height),preset,flash),0,0);
       }catch{fail("That photo could not be captured. Try again.");return;}
       playSound("shutter");setCount(null);if(flash&&motionEnabled.current)setFlashFrame(n=>n+1);
@@ -103,7 +104,6 @@ export default function Camera({onClose, onCapture, onUpload, enabled}: {
         </>}
       </>}
       {enabled&&flashFrame>0&&<motion.div key={flashFrame} className="capture-flash" aria-hidden="true" initial={{opacity:.28}} animate={{opacity:0}} transition={{duration:.32}} onAnimationComplete={()=>setFlashFrame(0)}/>}
-      {!captured&&!filmLoaded&&<p className="demo-instruction roll-instruction">Start here: turn the Roll film knob to load your photo.</p>}
       {!captured&&<p className="field-hint">Flash adds a soft digital fill to your photo.</p>}
       {!captured&&<button className="text-button camera-upload" onClick={onUpload}><Upload size={15}/> Upload a photo instead</button>}
     </div>

@@ -2,11 +2,24 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
-import InstantPrint from "./InstantPrint";
+import InstantPrint, { PHOTO_DEVELOPMENT_MS } from "./InstantPrint";
 vi.mock("../sounds",()=>({playSound:vi.fn()}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
-async function setup(){const host=document.createElement("div"),root=createRoot(host),reveal=vi.fn();document.body.append(host);await act(async()=>root.render(<InstantPrint photos={[{src:"photo.png",alt:"Captured moment"}]} caption="Today" enabled={false} onReveal={reveal}/>));return {host,reveal,close:async()=>{await act(async()=>root.unmount());host.remove();}};}
+async function setup(enabled=false){const host=document.createElement("div"),root=createRoot(host),reveal=vi.fn();document.body.append(host);await act(async()=>root.render(<InstantPrint photos={[{src:"photo.png",alt:"Captured moment"}]} caption="Today" enabled={enabled} onReveal={reveal}/>));return {host,reveal,close:async()=>{await act(async()=>root.unmount());host.remove();}};}
+it("waits for the complete seven-second development before enabling the next action",async()=>{
+  expect(PHOTO_DEVELOPMENT_MS).toBe(7000);
+  vi.useFakeTimers();const s=await setup(true);
+  try{
+    await act(async()=>s.host.querySelector<HTMLButtonElement>('.shake-reveal')!.click());
+    await act(async()=>vi.advanceTimersByTime(650));
+    expect(s.host.querySelector('img')).not.toBeNull();expect(s.reveal).not.toHaveBeenCalled();
+    await act(async()=>vi.advanceTimersByTime(PHOTO_DEVELOPMENT_MS-1));
+    expect(s.reveal).not.toHaveBeenCalled();expect(s.host.textContent).toContain("Developing…");
+    await act(async()=>vi.advanceTimersByTime(101));
+    expect(s.reveal).toHaveBeenCalledOnce();expect(s.host.textContent).toContain("Photo revealed");
+  }finally{await s.close();vi.useRealTimers();}
+});
 it.each(["denied","unavailable","rejected"])("keeps the tap fallback when motion is %s",async kind=>{
   const permission=kind==="rejected"?vi.fn().mockRejectedValue(new Error("blocked")):vi.fn().mockResolvedValue("denied");
   vi.stubGlobal("isSecureContext",true);vi.stubGlobal("DeviceMotionEvent",kind==="unavailable"?undefined:{requestPermission:permission});

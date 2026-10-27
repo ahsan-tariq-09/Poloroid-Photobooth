@@ -16,7 +16,7 @@ export default function InstantCamera({ children, onShutter, disabled, label = "
     <div className="camera-hardware">
       <div className="hardware-control"><button type="button" className={`film-roll ${!loaded&&!printed?"roll-needed":""}`} aria-label="Roll film" aria-pressed={loaded} disabled={rollDisabled} onClick={onRoll}><RotateCw size={23}/></button><span>{loaded?"FILM LOADED":printed?"ROLL AGAIN":"ROLL FILM"}</span></div>
       <div className="camera-hardware-copy">{controls}<span className="film-stripes" aria-hidden="true"><i/><i/><i/></span><span>Made to keep.</span></div>
-      <div className="hardware-control shutter-control"><button type="button" className="shutter" aria-label={label} disabled={disabled} onClick={onShutter}><Camera size={24} strokeWidth={1.5}/></button></div>
+      <div className="hardware-control shutter-control"><button type="button" className={`shutter ${loaded&&!printed&&!disabled?"shutter-ready":""}`} aria-label={label} disabled={disabled} onClick={onShutter}><Camera size={26} strokeWidth={2}/></button></div>
     </div><div className="ejection-slot" aria-hidden="true"/>
   </div>{print}</div>;
 }

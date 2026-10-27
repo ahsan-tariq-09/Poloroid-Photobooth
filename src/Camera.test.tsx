@@ -11,7 +11,8 @@ it("captures four separate frames, stops the camera and hands the strip to the b
   Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia:vi.fn().mockResolvedValue({getTracks:()=>[{stop}]})}});
   Object.defineProperty(HTMLVideoElement.prototype,"videoWidth",{configurable:true,value:640});
   Object.defineProperty(HTMLVideoElement.prototype,"videoHeight",{configurable:true,value:480});
-  vi.spyOn(HTMLCanvasElement.prototype,"getContext").mockReturnValue({drawImage:vi.fn(),translate:vi.fn(),scale:vi.fn(),getImageData:vi.fn(()=>({data:new Uint8ClampedArray([80,100,120,255]),width:1,height:1})),putImageData:vi.fn()} as never);
+  const draw=vi.fn(),translate=vi.fn();
+  vi.spyOn(HTMLCanvasElement.prototype,"getContext").mockReturnValue({drawImage:draw,translate,scale:vi.fn(),getImageData:vi.fn(()=>({data:new Uint8ClampedArray([80,100,120,255]),width:1,height:1})),putImageData:vi.fn()} as never);
   const toBlob=vi.spyOn(HTMLCanvasElement.prototype,"toBlob").mockImplementation(cb=>cb(new Blob(["frame"],{type:"image/png"})));
   URL.createObjectURL=vi.fn(()=>`blob:${crypto.randomUUID()}`); URL.revokeObjectURL=vi.fn();
   try {
@@ -22,6 +23,9 @@ it("captures four separate frames, stops the camera and hands the strip to the b
     await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!.click());
     await act(async()=>vi.advanceTimersByTimeAsync(13200));
     expect(toBlob).toHaveBeenCalledTimes(4); expect(stop).toHaveBeenCalled();
+    // A landscape video must produce the same edge-to-edge square seen in the viewfinder.
+    expect(draw).toHaveBeenCalledWith(host.querySelector("video"),0,0,480,480);
+    expect(translate).toHaveBeenCalledWith(480,0);
     expect(host.querySelectorAll('img[alt="Your captured photo"]')).toHaveLength(0);
     expect(host.querySelector(".capture-decisions")).toBeNull();
     await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Shake to reveal"]')!.click());
