@@ -154,3 +154,13 @@
   .instant-print { width:var(--desktop-print-width); max-width:100%; }
 }
 .print-reveal-actions .print-shake-hint { max-width:52ch; margin-inline:auto; }
+
+.camera-backdrop { background:#10140fd6; }
+.camera-backdrop .camera-experience { --ink:#f5f1e5; --muted:#d1d0c3; --paper:#3b4037; background:var(--paper); color:var(--ink); }
+.camera-backdrop .capture-heading .icon-button { color:var(--ink); }
+.camera-backdrop .capture-mode button { background:#454c3f; border-color:#79816e; color:var(--ink); }
+.camera-backdrop .capture-mode [aria-pressed=true] { background:#606b51; border-color:#b7c49e; color:#fff9e9; }
+.camera-backdrop .capture-mode button:hover:not(:disabled) { background:#566149; }
+.camera-backdrop .capture-heading .icon-button:hover, .camera-backdrop .camera-experience > .text-button:hover, .camera-backdrop .secondary-button:hover { background:#566149; }
+.camera-backdrop .roll-instruction { color:var(--muted); }
+.camera-backdrop .camera-experience :focus-visible { outline-color:#d9edb6; }

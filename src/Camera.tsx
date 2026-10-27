@@ -86,7 +86,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled}: {
       timer.current=setTimeout(()=>countdown(n-1),1000);
     };countdown(seconds);
   };
-  return <motion.div className="modal-backdrop" initial={enabled?{opacity:0}:false} animate={{opacity:1}} exit={enabled?{opacity:0}:undefined} transition={{duration:enabled?.18:0}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+  return <motion.div className="modal-backdrop camera-backdrop" initial={enabled?{opacity:0}:false} animate={{opacity:1}} exit={enabled?{opacity:0,transition:{duration:.15}}:undefined} transition={{duration:enabled?.25:0,ease:[.22,1,.36,1]}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
     <div ref={container} tabIndex={-1} className={`camera-modal camera-experience ${captured?"has-print":""}`} role="dialog" aria-modal="true" aria-labelledby="camera-title">
       <div className="capture-heading"><div><h2 id="camera-title">{captured?"A moment, on paper.":"Take a photo"}</h2><p>{captured?(revealed?"Keep it simple, or make it your own.":"Shake the print to bring your photo into view."):"Roll the film, choose your settings, then click."}</p></div><button className="icon-button" aria-label="Close camera" onClick={onClose}><X size={20}/></button></div>
       {!captured&&<div className="capture-mode segmented" aria-label="Camera mode"><button aria-pressed={shots===1} disabled={shot>0} onClick={()=>setShots(1)}>Single Polaroid</button><button aria-pressed={shots===4} disabled={shot>0} onClick={()=>setShots(4)}>4-shot strip</button></div>}
