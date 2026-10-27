@@ -21,4 +21,5 @@ coverage/
 .github\instructions\codacy.instructions.md
 .openai/
 # Local documentation and editor AI rules
+/.github/instructions/codacy.instructions.md
 /docs/
