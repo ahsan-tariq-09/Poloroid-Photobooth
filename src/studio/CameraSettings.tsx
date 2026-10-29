@@ -5,7 +5,7 @@ export const filmPresets = ["Classic","B&W","Film Grain","Faded"] as const;
 export type FilmPreset = typeof filmPresets[number];
 export const isoStops = [100,200,400,800,1600,3200] as const;
 export type CameraISO = typeof isoStops[number];
-export type CameraPreferences = { seconds:TimerSeconds; preset:FilmPreset; flash:boolean; iso?:CameraISO };
+export type CameraPreferences = { seconds:TimerSeconds; preset:FilmPreset; flash:boolean; iso?:CameraISO; loadStartedAt?:number };
 
 export function CameraReadout({seconds,preset,iso=800}:Pick<CameraPreferences,"seconds"|"preset"|"iso">) {
   return <div className="viewfinder-readout" aria-label="Camera settings">

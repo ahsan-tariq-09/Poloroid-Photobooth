@@ -6,7 +6,7 @@ import InstantPrint from "./studio/InstantPrint";
 import CameraSettings, { CameraReadout, type CameraISO, type TimerSeconds, type FilmPreset, type CameraPreferences } from "./studio/CameraSettings";
 import CameraPreview from "./studio/CameraPreview";
 import { applyCameraFilm } from "./studio/cameraFilm";
-import { playSound, unlockSound } from "./sounds";
+import { playSound, unlockSound, stopSounds, FILM_LOAD_MS, SHUTTER_SOUND_MS } from "./sounds";
 
 export type CaptureDestination = "edit" | "finish" | "scrapbook";
 export default function Camera({onClose, onCapture, onUpload, enabled, initialSettings}: {
@@ -25,8 +25,15 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
   const motionEnabled=useRef(enabled);motionEnabled.current=enabled;
   const captured=prints.length>0;
   useEffect(()=>{if(!enabled)setFlashFrame(0);},[enabled]);
-  const [filmLoaded,setFilmLoaded]=useState(Boolean(initialSettings));
-  const roll=()=>{playSound("paper");setFilmLoaded(true);if(captured){container.current?.focus();urls.current.forEach(url=>URL.revokeObjectURL(url));urls.current=[];setPrints([]);setRevealed(false);setRestart(n=>n+1);}};
+  const [filmLoaded,setFilmLoaded]=useState(Boolean(initialSettings)&&initialSettings?.loadStartedAt===undefined);
+  const [loadingUntil,setLoadingUntil]=useState(initialSettings?.loadStartedAt===undefined?0:initialSettings.loadStartedAt+FILM_LOAD_MS);
+  const loading=loadingUntil>0;
+  useEffect(()=>{
+    if(!loadingUntil)return;
+    const timeout=setTimeout(()=>{setLoadingUntil(0);setFilmLoaded(true);},Math.max(0,loadingUntil-performance.now()));
+    return()=>clearTimeout(timeout);
+  },[loadingUntil]);
+  const roll=()=>{if(loading)return;setFilmLoaded(false);setLoadingUntil(performance.now()+FILM_LOAD_MS);void Promise.resolve(playSound("load")).then(()=>{if(alive.current)setLoadingUntil(performance.now()+FILM_LOAD_MS);});if(captured){container.current?.focus();urls.current.forEach(url=>URL.revokeObjectURL(url));urls.current=[];setPrints([]);setRevealed(false);setRestart(n=>n+1);}};
   const stop=()=>{stream.current?.getTracks().forEach(t=>t.stop());stream.current=null;if(timer.current)clearTimeout(timer.current);};
   const markReady=()=>{
     const target=video.current;
@@ -40,7 +47,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
   };
   useEffect(()=>{
     alive.current=present; setReady(false); setError(""); if (!present) return; let disposed=false; let owned:MediaStream|null=null;
-    if(!navigator.mediaDevices?.getUserMedia){setError("Camera capture needs HTTPS or localhost. Upload a photo to keep creating."); return;}
+    if(!navigator.mediaDevices?.getUserMedia){setError("Camera capture needs HTTPS or localhost. Upload a photo to keep creating."); return()=>{alive.current=false;};}
     void navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing}},audio:false}).then(value=>{
       if(disposed || !alive.current){value.getTracks().forEach(t=>t.stop());return;}
       owned=value;stream.current=value;if(video.current){video.current.srcObject=value;void playVideo();}
@@ -50,7 +57,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
   },[facing,restart,present]);
   useEffect(()=>{
     const previous=document.activeElement as HTMLElement|null;container.current?.focus();
-    return ()=>{urls.current.forEach(url=>URL.revokeObjectURL(url));previous?.focus();};
+    return ()=>{queueMicrotask(()=>{if(!alive.current)stopSounds();});urls.current.forEach(url=>URL.revokeObjectURL(url));previous?.focus();};
   },[]);
   useEffect(()=>{if(!present){alive.current=false;stop();}},[present]);
   useEffect(()=>{
@@ -71,7 +78,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
     unlockSound();setError("");captureRunning.current=true;setShot(1);const token=++generation.current;
     const results:{file:File;url:string}[]=[];
     const fail=(message:string)=>{captureRunning.current=false;setCount(null);setShot(0);setError(message);results.forEach(p=>{URL.revokeObjectURL(p.url);urls.current=urls.current.filter(url=>url!==p.url);});};
-    const captureFrame=()=>{
+    const captureFrame=async()=>{
       if(!alive.current||!captureRunning.current||generation.current!==token)return;
       const v=video.current;
       if(!v?.videoWidth||!v.videoHeight){fail("The camera is still warming up. Try the shutter again.");return;}
@@ -84,13 +91,15 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
         ctx.drawImage(v,(v.videoWidth-canvas.width)/2,(v.videoHeight-canvas.height)/2,canvas.width,canvas.height,0,0,canvas.width,canvas.height);
         ctx.putImageData(applyCameraFilm(ctx.getImageData(0,0,canvas.width,canvas.height),preset,flash,iso),0,0);
       }catch{fail("That photo could not be captured. Try again.");return;}
-      playSound("shutter");setCount(null);if(flash&&motionEnabled.current)setFlashFrame(n=>n+1);
+      await playSound("shutter");
+      if(!alive.current||!captureRunning.current||generation.current!==token)return;
+      setCount(null);if(flash&&motionEnabled.current)setFlashFrame(n=>n+1);
       canvas.toBlob(blob=>{
         if(!alive.current||!captureRunning.current||generation.current!==token)return;
         if(!blob){fail("That photo could not be captured. Try again.");return;}
         const url=URL.createObjectURL(blob);urls.current.push(url);results.push({file:new File([blob],`camera-photo-${results.length+1}.png`,{type:"image/png"}),url});
-        if(results.length<shots){setShot(results.length+1);timer.current=setTimeout(()=>countdown(seconds),400);}
-        else {captureRunning.current=false;setPrints(results);setFilmLoaded(false);setShot(0);stop();setReady(false);playSound("paper");}
+        if(results.length<shots){setShot(results.length+1);timer.current=setTimeout(()=>countdown(seconds),SHUTTER_SOUND_MS);}
+        else {captureRunning.current=false;setPrints(results);setFilmLoaded(false);setShot(0);stop();setReady(false);}
       },"image/png");
     };
     const countdown=(n:number)=>{
@@ -106,11 +115,11 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
       {!captured&&<div className="capture-mode segmented" aria-label="Camera mode"><button aria-pressed={shots===1} disabled={shot>0} onClick={()=>setShots(1)}>Single Polaroid</button><button aria-pressed={shots===4} disabled={shot>0} onClick={()=>setShots(4)}>4-shot strip</button></div>}
       <InstantCamera printed={captured} print={captured?<InstantPrint photos={prints.map(p=>({src:p.url,alt:"Your captured photo"}))} caption={prints.length>1?"Four little moments":"Just now."} enabled={enabled} onReveal={()=>setRevealed(true)} onRetake={roll}/>:undefined}
         settings={<CameraSettings seconds={seconds} onSeconds={setSeconds} preset={preset} onPreset={setPreset} flash={flash} onFlash={setFlash} iso={iso} onISO={setISO} disabled={shot>0}/>}
-        onRoll={roll} rollDisabled={shot>0||(!ready&&!captured)} loaded={filmLoaded} onShutter={take} disabled={!ready||!filmLoaded||shot>0||captured} label="Capture" status={captured?"PRINT READY":shot?`SHOT ${shot} OF ${shots}`:ready?(filmLoaded?`READY · ${seconds?`TIMER ${seconds}s`:"TIMER OFF"}`:"ROLL TO LOAD FILM"):error?"CAMERA UNAVAILABLE":"CONNECTING CAMERA"} controls={!captured?<button className="camera-flip" aria-label="Flip camera" disabled={shot>0} onClick={()=>setFacing(f=>f==="user"?"environment":"user")}><RefreshCw size={18}/></button>:undefined}>
+        onRoll={roll} rollDisabled={loading||shot>0||(!ready&&!captured)} loading={loading} loaded={filmLoaded} onShutter={take} disabled={!ready||!filmLoaded||shot>0||captured} label="Capture" status={loading?"LOADING FILM":captured?"PRINT READY":shot?`SHOT ${shot} OF ${shots}`:ready?(filmLoaded?`READY · ${seconds?`TIMER ${seconds}s`:"TIMER OFF"}`:"ROLL TO LOAD FILM"):error?"CAMERA UNAVAILABLE":"CONNECTING CAMERA"} controls={!captured?<button className="camera-flip" aria-label="Flip camera" disabled={shot>0} onClick={()=>setFacing(f=>f==="user"?"environment":"user")}><RefreshCw size={18}/></button>:undefined}>
         <video ref={video} autoPlay playsInline muted style={{transform:facing==="user"?"scaleX(-1)":undefined}} onLoadedData={markReady} onPlaying={markReady}/>
         {ready&&!captured&&<CameraPreview video={video} preset={preset} iso={iso} flash={flash} mirrored={facing==="user"}/>}
         <CameraReadout seconds={seconds} preset={preset} iso={iso}/>
-        {!captured&&<span className={!ready||error?"camera-message":"sr-only"} role="status">{error||(!ready?"Waiting for your camera…":filmLoaded?"Film loaded. Click the shutter.":"Camera ready. Roll the film, then click the shutter.")}</span>}
+        {!captured&&<span className={!ready||error?"camera-message":"sr-only"} role="status">{error||(!ready?"Waiting for your camera…":loading?"Loading film…":filmLoaded?"Film loaded. Click the shutter.":"Camera ready. Roll the film, then click the shutter.")}</span>}
         {count!==null&&<span className="countdown" aria-live="assertive">{count}</span>}
       </InstantCamera>
       {captured&&<>

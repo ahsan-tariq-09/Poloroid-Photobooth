@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import { motion, useMotionValue } from "motion/react";
 import { Hand } from "lucide-react";
-import { playSound } from "../sounds";
+import { SHUTTER_SOUND_MS } from "../sounds";
 import { createPhoneShakeDetector } from "./phoneShake";
 
 type MotionAccess = typeof DeviceMotionEvent & { requestPermission?: () => Promise<"granted" | "denied"> };
 export const PHOTO_DEVELOPMENT_MS = 10000;
-export const PRINT_EJECTION_MS = 5000;
+export const PRINT_EJECTION_MS = Math.max(5000,SHUTTER_SOUND_MS);
 
 /** Owns the blank-to-developed print, gestures, and optional phone sensor access. */
 export default function InstantPrint({ photos, caption, enabled, onReveal, onRetake }: {
@@ -22,7 +22,7 @@ export default function InstantPrint({ photos, caption, enabled, onReveal, onRet
 
   const reveal=useCallback(()=>{
     if(revealStarted.current||phase!=="blank")return;
-    revealStarted.current=true; gesture.current=null; offset.set(0); playSound("paper"); setPhase("shaking");
+    revealStarted.current=true; gesture.current=null; offset.set(0); setPhase("shaking");
   },[offset,phase]);
   useEffect(()=>{
     if(phase!=="ejecting")return;
@@ -90,7 +90,7 @@ export default function InstantPrint({ photos, caption, enabled, onReveal, onRet
         <button className={`${phase==="blank"?"primary-button":"secondary-button"} shake-reveal`} aria-label={phase==="revealed"?"Photo revealed":"Shake to reveal"} disabled={phase!=="blank"} onClick={revealByButton}><Hand size={20}/>{phase==="ejecting"?"Printing…":phase==="blank"?"Shake to reveal":phase==="revealed"?"Photo revealed":"Developing…"}</button>
         {onRetake&&<button className="secondary-button retake-photo" onClick={onRetake}>Retake photo</button>}
       </div>
-      <p className="field-hint print-shake-hint" role="status">{phase==="ejecting"?"Your print is coming out. Give it five seconds.":phase==="blank"?"Phone shake starts automatically where supported. Use a few firm back-and-forth shakes. Small movements won’t reveal the photo.":phase==="revealed"?"Your moment is ready to keep.":"Your photo is developing. Give it a few seconds."}</p>
+      <p className="field-hint print-shake-hint" role="status">{phase==="ejecting"?"Your print is coming out. Give it a few seconds.":phase==="blank"?"Phone shake starts automatically where supported. Use a few firm back-and-forth shakes. Small movements won’t reveal the photo.":phase==="revealed"?"Your moment is ready to keep.":"Your photo is developing. Give it a few seconds."}</p>
       {phase==="blank"&&<>
         <p className="field-hint">You can also drag the print or tap Shake to reveal.</p>
         {motionApi?.requestPermission&&!sensorActive&&<p className="field-hint print-shake-hint">Your browser may ask for motion access when you tap Shake to reveal.</p>}

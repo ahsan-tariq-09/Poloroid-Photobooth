@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import DemoCamera from "./DemoCamera";
-vi.mock("../sounds",()=>({playSound:vi.fn()}));
+vi.mock("../sounds",()=>({playSound:vi.fn(),preloadSounds:vi.fn()}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 
 it("keeps home controls working and opens the real camera with their settings",async()=>{
@@ -30,12 +30,12 @@ it("keeps home controls working and opens the real camera with their settings",a
     expect(host.querySelector('.viewfinder-readout')!.textContent).toContain('B&W');
     expect(host.querySelector('.viewfinder-readout')!.textContent).toContain('5s');
     await act(async()=>button("Roll film").click());
-    expect(open).toHaveBeenLastCalledWith({seconds:5,preset:"B&W",flash:true,iso:1600});
+    expect(open).toHaveBeenLastCalledWith({seconds:5,preset:"B&W",flash:true,iso:1600,loadStartedAt:expect.any(Number)});
     expect(host.querySelector('.instant-print')).toBeNull();
     expect(host.querySelector('img')!.alt).toContain('display photo');
     await act(async()=>button("Take a photo with this camera").click());
     expect(open).toHaveBeenCalledTimes(2);
-    expect(open).toHaveBeenLastCalledWith({seconds:5,preset:"B&W",flash:true,iso:1600});
+    expect(open).toHaveBeenLastCalledWith({seconds:5,preset:"B&W",flash:true,iso:1600,loadStartedAt:expect.any(Number)});
   }finally{await act(async()=>root.unmount());host.remove();}
 });
 

@@ -40,7 +40,7 @@ describe("offline app shell", () => {
     w.listeners.fetch({ request: { url: "https://studio.test/photo", method: "POST" }, respondWith });
     expect(respondWith).not.toHaveBeenCalled();
   });
-  it.each(["/sample-flash.webp", "/textures/leather.webp"])("serves the new camera asset %s offline", async path => {
+  it.each(["/sample-flash.webp", "/textures/leather.webp", "/audio/film-load.mp3", "/audio/shutter.mp3"])("serves the new camera asset %s offline", async path => {
     const w=worker(false); let response:Promise<unknown>;
     w.listeners.fetch({request:{url:`https://studio.test${path}`,method:"GET"},respondWith:(p:Promise<unknown>)=>{response=p;}});
     expect(await response!).toBe("cached-shell");

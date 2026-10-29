@@ -12,6 +12,7 @@ export default defineConfig({
       const resources = ["/", "/manifest.webmanifest", "/favicon.svg", "/icons/icon-192.png", "/icons/icon-512.png", "/sample-coast.webp", "/fonts/dm-serif-display/regular.ttf", "/fonts/dm-serif-display/italic.ttf", ...assets];
       resources.push("/fonts/lindbergh-baby/Lindbergh_Baby.ttf", "/sample-flash.webp", "/textures/leather.webp");
       resources.push("/fonts/caveat/Caveat.ttf", "/fonts/permanent-marker/PermanentMarker-Regular.ttf");
+      resources.push("/audio/film-load.mp3", "/audio/shutter.mp3");
       const hash = createHash("sha256").update(JSON.stringify(resources)).update(readFileSync("index.html")).update(readFileSync("src/service-worker.js"));
       for (const path of resources.filter(path => path !== "/" && !path.startsWith("/assets/"))) hash.update(readFileSync("public" + path));
       const version = hash.digest("hex").slice(0,12);

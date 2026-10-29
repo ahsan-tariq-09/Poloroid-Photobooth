@@ -14,7 +14,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(fetch(request).catch(async () => (await caches.open(CACHE)).match('/', { ignoreVary: true })));
     return;
   }
-  if (!/^\/(assets\/|fonts\/|icons\/|textures\/|sample-(coast|flash)\.|favicon\.|manifest\.)/.test(url.pathname)) return;
+  if (!/^\/(assets\/|fonts\/|icons\/|textures\/|audio\/|sample-(coast|flash)\.|favicon\.|manifest\.)/.test(url.pathname)) return;
   event.respondWith((async () => {
     // These are same-origin static files. Preview servers may emit Vary: Origin;
     // module requests carry Origin while the install-time fetch does not.
