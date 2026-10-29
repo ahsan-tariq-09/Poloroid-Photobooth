@@ -23,7 +23,6 @@ export default function StartScreen({busy, hasSession, onUpload, onCamera, onExa
     <section className="camera-intro" aria-label="Create a Polaroid" aria-busy={busy}>
       <div className="intro-copy">
         <h1 tabIndex={-1}>Keep a little <em>of the moment.</em></h1>
-        <p>Make an instant photo, leave a few words, and keep it somewhere good.</p>
       </div>
       <div className="start-actions">
           <button className="primary-button" aria-label="Take a photo" disabled={busy} onClick={()=>onCamera()}><Camera size={19}/> Take a photo</button>

@@ -127,7 +127,7 @@
 .timer-stop[aria-pressed=true] { color:#ffdb98; font-weight:700; background:#f4d18b14; }
 .timer-stop:hover:not(:disabled) { background:#fff2; }
 .stop-0 { top:3px;left:3px; }.stop-1 { right:3px;top:3px; }.stop-2 { bottom:3px;right:3px; }.stop-3 { left:3px;bottom:3px; }
-.dial-hub { position:absolute; width:14px;height:14px;top:41px;left:41px;border:1px solid #eee;border-radius:50%;background:linear-gradient(90deg,#565b58,#dce0d8); }
+.dial-hub { position:absolute; width:14px;height:14px;top:calc(50% - 7px);left:calc(50% - 7px);border:1px solid #eee;border-radius:50%;background:linear-gradient(90deg,#565b58,#dce0d8); }
 .timer-pointer { position:absolute; inset:-6px; border-radius:50%; pointer-events:none; z-index:2; }
 .timer-pointer::before { content:''; position:absolute; top:0;left:calc(50% - 5px); border:5px solid transparent; border-top:8px solid #ec7662; }
 .hardware-value { display:block; text-align:center; font-size:11px; color:#e6ddc8; margin-top:10px; }

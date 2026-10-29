@@ -28,7 +28,7 @@ export default function CameraSettings({seconds,onSeconds,preset,onPreset,flash,
     </fieldset>
     <fieldset className="iso-control" disabled={disabled}><legend>ISO effect</legend>
       <div className="iso-dial"><i className="timer-pointer" aria-hidden="true"/>
-        <div className="iso-markings" style={{transform:`rotate(${-isoIndex*60}deg)`}} aria-hidden="true">{isoStops.map((value,index)=>{
+        <div className="iso-markings" style={{transform:`rotate(${-isoIndex*60}deg)`}} aria-hidden="true"><i className="dial-hub"/>{isoStops.map((value,index)=>{
           const angle=index*Math.PI/3;
           return <span key={value} style={{transform:`translate(${Math.sin(angle)*43}px,${-Math.cos(angle)*43}px) rotate(${isoIndex*60}deg)`,color:value===iso?"#ffdb98":undefined,fontWeight:value===iso?700:undefined}}>{value}</span>;
         })}</div>
