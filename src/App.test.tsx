@@ -790,7 +790,7 @@ describe("photo-first navigation and sessions", () => {
       await act(async () => host.querySelector<HTMLButtonElement>('[role="dialog"] [aria-label="Roll film"]')!.click());
       const capture = host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!;
       expect(capture.disabled).toBe(true);
-      await act(async () => vi.advanceTimersByTimeAsync(6000));
+      await act(async () => vi.advanceTimersByTimeAsync(2800));
       expect(capture.disabled).toBe(false);
       await act(async () => capture.click());
       expect(host.textContent).toContain("3");

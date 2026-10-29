@@ -1,5 +1,5 @@
 // Measured from the decoded recordings, including the shutter's film-ejection tail.
-export const FILM_LOAD_MS = 6000;
+export const FILM_LOAD_MS = 2800;
 export const SHUTTER_SOUND_MS = 7728;
 const clips = { load: "/audio/film-load.mp3", shutter: "/audio/shutter.mp3" };
 type Clip = keyof typeof clips;

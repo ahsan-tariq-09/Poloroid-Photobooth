@@ -43,6 +43,5 @@ export default function DemoCamera({ busy, onCamera }: { busy:boolean; onCamera:
       <canvas ref={preview} className="demo-film-preview" aria-hidden="true" style={{visibility:"hidden"}}/>
       <CameraReadout seconds={seconds} preset={preset} iso={iso}/>
     </InstantCamera>
-    <p className="camera-effect-note">ISO simulates exposure and grain. Film changes appear in your photo.</p>
   </div>;
 }

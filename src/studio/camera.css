@@ -201,7 +201,6 @@
 .viewfinder-readout > span:last-child { justify-content:end; }
 .viewfinder-status { top:auto; bottom:8px; max-width:calc(100% - 16px); }
 .viewfinder-corners { inset:4px; }
-.camera-effect-note { margin:10px 0 0; text-align:center; color:var(--muted); font-size:12px; line-height:1.5; }
 .camera-backdrop { overflow:hidden; padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left)); }
 .camera-modal.camera-experience { width:min(768px,100%); max-height:calc(100dvh - 20px); overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; -webkit-text-size-adjust:100%; }
 @media(max-width:799px) {
