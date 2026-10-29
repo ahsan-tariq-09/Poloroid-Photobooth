@@ -28,14 +28,25 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
   const [filmLoaded,setFilmLoaded]=useState(Boolean(initialSettings));
   const roll=()=>{playSound("paper");setFilmLoaded(true);if(captured){container.current?.focus();urls.current.forEach(url=>URL.revokeObjectURL(url));urls.current=[];setPrints([]);setRevealed(false);setRestart(n=>n+1);}};
   const stop=()=>{stream.current?.getTracks().forEach(t=>t.stop());stream.current=null;if(timer.current)clearTimeout(timer.current);};
+  const markReady=()=>{
+    const target=video.current;
+    if(alive.current&&stream.current&&target?.srcObject===stream.current&&!target.paused&&target.readyState>=2&&target.videoWidth>0&&target.videoHeight>0){setReady(true);setError("");}
+  };
+  const playVideo=async()=>{
+    const target=video.current,owned=stream.current;if(!target||!owned)return;
+    target.muted=true;target.playsInline=true;setError("");
+    try{await target.play();if(stream.current===owned)markReady();}
+    catch{if(alive.current&&stream.current===owned){setReady(false);setError("Camera playback was paused or blocked. Tap Retry camera to start it.");}}
+  };
   useEffect(()=>{
     alive.current=present; setReady(false); setError(""); if (!present) return; let disposed=false; let owned:MediaStream|null=null;
     if(!navigator.mediaDevices?.getUserMedia){setError("Camera capture needs HTTPS or localhost. Upload a photo to keep creating."); return;}
     void navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing}},audio:false}).then(value=>{
       if(disposed || !alive.current){value.getTracks().forEach(t=>t.stop());return;}
-      owned=value;stream.current=value;if(video.current)video.current.srcObject=value;
-    }).catch(()=>{if(!disposed)setError("Your camera is unavailable or permission was declined. Upload a photo to keep creating.");});
-    return ()=>{disposed=true;alive.current=false;generation.current++;captureRunning.current=false;owned?.getTracks().forEach(t=>t.stop());if(stream.current===owned)stream.current=null;if(timer.current)clearTimeout(timer.current);};
+      owned=value;stream.current=value;if(video.current){video.current.srcObject=value;void playVideo();}
+    }).catch(reason=>{if(!disposed)setError(reason?.name==="NotAllowedError"?"Camera permission was declined. Allow camera access in your browser settings, then retry.":reason?.name==="NotFoundError"?"No camera was found. Connect a camera and retry, or upload a photo.":"Your camera is unavailable. Close other apps using it and retry, or upload a photo.");});
+    const target=video.current;
+    return ()=>{disposed=true;alive.current=false;generation.current++;captureRunning.current=false;owned?.getTracks().forEach(t=>t.stop());if(target?.srcObject===owned)target.srcObject=null;if(stream.current===owned)stream.current=null;if(timer.current)clearTimeout(timer.current);};
   },[facing,restart,present]);
   useEffect(()=>{
     const previous=document.activeElement as HTMLElement|null;container.current?.focus();
@@ -96,7 +107,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
       <InstantCamera printed={captured} print={captured?<InstantPrint photos={prints.map(p=>({src:p.url,alt:"Your captured photo"}))} caption={prints.length>1?"Four little moments":"Just now."} enabled={enabled} onReveal={()=>setRevealed(true)} onRetake={roll}/>:undefined}
         settings={<CameraSettings seconds={seconds} onSeconds={setSeconds} preset={preset} onPreset={setPreset} flash={flash} onFlash={setFlash} iso={iso} onISO={setISO} disabled={shot>0}/>}
         onRoll={roll} rollDisabled={shot>0||(!ready&&!captured)} loaded={filmLoaded} onShutter={take} disabled={!ready||!filmLoaded||shot>0||captured} label="Capture" status={captured?"PRINT READY":shot?`SHOT ${shot} OF ${shots}`:ready?(filmLoaded?`READY · ${seconds?`TIMER ${seconds}s`:"TIMER OFF"}`:"ROLL TO LOAD FILM"):error?"CAMERA UNAVAILABLE":"CONNECTING CAMERA"} controls={!captured?<button className="camera-flip" aria-label="Flip camera" disabled={shot>0} onClick={()=>setFacing(f=>f==="user"?"environment":"user")}><RefreshCw size={18}/></button>:undefined}>
-        <video ref={video} autoPlay playsInline muted style={{transform:facing==="user"?"scaleX(-1)":undefined}} onLoadedData={()=>setReady(true)}/>
+        <video ref={video} autoPlay playsInline muted style={{transform:facing==="user"?"scaleX(-1)":undefined}} onLoadedData={markReady} onPlaying={markReady}/>
         {ready&&!captured&&<CameraPreview video={video} preset={preset} iso={iso} flash={flash} mirrored={facing==="user"}/>}
         <CameraReadout seconds={seconds} preset={preset} iso={iso}/>
         {!captured&&<span className={!ready||error?"camera-message":"sr-only"} role="status">{error||(!ready?"Waiting for your camera…":filmLoaded?"Film loaded. Click the shutter.":"Camera ready. Roll the film, then click the shutter.")}</span>}
@@ -110,6 +121,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
       </>}
       {enabled&&flashFrame>0&&<motion.div key={flashFrame} className="capture-flash" aria-hidden="true" initial={{opacity:.28}} animate={{opacity:0}} transition={{duration:.32}} onAnimationComplete={()=>setFlashFrame(0)}/>}
       {!captured&&<p className="field-hint">ISO simulates exposure and grain. Flash adds a soft digital fill.</p>}
+      {!captured&&error&&!ready&&<button className="secondary-button" onClick={()=>{if(stream.current&&!stream.current.getTracks().some(track=>track.readyState==="ended"))void playVideo();else setRestart(n=>n+1);}}>Retry camera</button>}
       {!captured&&<button className="text-button camera-upload" onClick={onUpload}><Upload size={15}/> Upload a photo instead</button>}
     </div>
   </motion.div>;

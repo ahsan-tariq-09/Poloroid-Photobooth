@@ -13,11 +13,12 @@
 .instant-camera { padding:22px 24px 18px; border:2px solid #474943; border-radius:9px; background:#252622 url('/textures/leather.webp') repeat; background-size:340px; box-shadow:inset 0 1px 1px #fff5, inset 0 -3px 6px #000, 0 16px 26px -14px #24231d80; }
 .camera-nameplate { padding:0 0 18px; align-items:center; gap:12px; }
 .camera-nameplate > span:first-child { padding:8px 14px; border:1px solid #8c8d83; border-radius:2px; background:linear-gradient(165deg,#e3e4da,#9b9e93 48%,#c9cdc1); box-shadow:0 2px 3px #000b,inset 0 1px #fff; color:#252b26; font:600 18px/1.1 'Helvetica Neue',Arial,sans-serif; letter-spacing:.19em; }
-.camera-indicator { padding:5px 8px; color:#e7e5d4; background:#141713; border:1px solid #707267; font:9px/1.4 ui-monospace,monospace; letter-spacing:.14em; text-align:center; }
+.camera-indicator,.camera-experience .camera-indicator { padding:5px 8px; color:#e7e5d4; background:#141713; border:1px solid #707267; font:9px/1.4 ui-monospace,monospace; letter-spacing:.14em; text-align:center; }
 .viewfinder-bezel { position:relative; padding:13px; border:1px solid #7e8277; border-radius:3px; background:linear-gradient(125deg,#42483d,#20251e 55%,#51564b); box-shadow:0 3px 5px #0009,inset 0 1px #8b9082; }
 .camera-display,.camera-experience .camera-display { aspect-ratio:1; border:2px solid #090c08; border-radius:0; }
 .camera-display > img { object-fit:cover; filter:none; }
 .camera-display > video { object-fit:cover; }
+.camera-display > video,.camera-display > img { position:absolute; inset:0; }
 .camera-demo .camera-display > img { filter:brightness(.93); }
 .demo-film-preview { position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover; }
 .live-film-preview { position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover; }
@@ -43,6 +44,12 @@
 .shutter svg { position:relative; z-index:2; flex-shrink:0; stroke:#fff; opacity:1; }
 .camera-experience .shutter { width:64px; height:64px; min-height:64px; }
 .camera-flip { min-width:44px; }
+.camera-center-control { width:44px; height:44px; display:grid; place-items:center; }
+.camera-flip { width:44px; height:44px; }
+.camera-assembly .camera-hardware { gap:8px; }
+.camera-assembly .hardware-control:first-child { width:68px; flex:0 0 68px; }
+.camera-assembly .camera-hardware-copy { flex:1; min-width:0; font-size:9px; }
+.camera-hardware-copy > span:last-child { min-height:27px; }
 .shutter::after { content:''; position:absolute; inset:1px; border:3px solid #ff8b76; border-radius:50%; background:#ed4935; pointer-events:none; opacity:0; }
 .shutter-ready::after { animation:shutter-ready 4s ease-in-out .8s infinite; }
 @keyframes shutter-ready { 0%,20%,100% { opacity:0; } 55% { opacity:1; } }
@@ -152,8 +159,7 @@
 @media(min-width:800px) {
   .camera-demo { max-width:720px; }
   .camera-experience { width:768px; }
-  .camera-assembly { --desktop-print-width:298px; }
-  .camera-experience .camera-assembly { --desktop-print-width:410px; }
+  .camera-assembly { --desktop-print-width:410px; }
   .camera-assembly .instant-camera { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:24px; }
   .camera-nameplate,.camera-hardware,.ejection-slot { grid-column:1 / -1; }
   .viewfinder-bezel { align-self:center; }
@@ -174,7 +180,7 @@
 .camera-backdrop .roll-instruction { color:var(--muted); }
 .camera-backdrop .camera-experience :focus-visible { outline-color:#d9edb6; }
 
-/* Keep hit targets fixed: turning the dial must never move a control under a finger. */
+/* Shared controls keep the same geometry in the display and live camera. */
 .camera-settings { grid-template-areas:"film dials flash"; align-items:center; }
 .camera-dials { grid-area:dials; display:grid; gap:20px; justify-items:center; min-width:0; }
 .film-presets { grid-area:film; align-self:center; }
@@ -185,12 +191,11 @@
 .camera-settings .film-presets button { min-height:44px; gap:5px; font-size:11px; }
 .camera-settings .film-presets button span { overflow-wrap:anywhere; }
 .iso-dial { position:relative; width:120px; height:120px; border-radius:50%; background:radial-gradient(circle,#232625 61%,transparent 62%),repeating-conic-gradient(#b5b6ac 0deg 2deg,#282a26 2deg 6deg); box-shadow:0 3px 7px #000,inset 0 0 0 2px #74776e; }
-.iso-markings { position:absolute; inset:0; pointer-events:none; }
-.iso-markings > span { position:absolute; top:50%; left:50%; width:32px; height:14px; margin:-7px 0 0 -16px; text-align:center; font:10px/1.4 ui-monospace,monospace; transition:transform var(--duration-fast) var(--ease-smooth-out); }
-.iso-dial select { appearance:none; -webkit-appearance:none; position:absolute; top:38px; left:26px; width:68px; min-height:44px; padding:0 16px 0 4px; border:1px solid #b1b7a6; border-radius:22px; background:#363e32; color:#fff9e9; font:600 16px ui-monospace,monospace; text-align:center; cursor:pointer; }
-.iso-chevron { position:absolute; top:54px; right:31px; color:#fff9e9; pointer-events:none; }
-.iso-dial select:focus-visible { outline:3px solid #d9edb6; outline-offset:4px; }
-.viewfinder-readout { position:absolute; inset:0 0 auto; z-index:2; display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:8px; padding:8px; color:#d5f3af; background:#0d1b0ce8; font:10px/1.4 ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+.iso-markings { position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle,#232625 61%,transparent 62%),repeating-conic-gradient(#b5b6ac 0deg 2deg,#282a26 2deg 6deg); pointer-events:none; transition:transform 300ms ease-out; }
+.iso-markings > span { position:absolute; top:50%; left:50%; width:32px; height:16px; margin:-8px 0 0 -16px; text-align:center; color:#f8f6ed; font:11px/1.4 var(--font); transition:transform var(--duration-fast) var(--ease-smooth-out); }
+.iso-knob { position:absolute; inset:0; width:100%; height:100%; padding:0; border:0; border-radius:50%; background:transparent; color:#fff9e9; cursor:pointer; }
+.iso-knob:hover:not(:disabled) { background:transparent; }
+.viewfinder-readout { position:absolute; inset:0 0 auto; z-index:2; display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:8px; padding:8px; color:#d5f3af; background:transparent; text-shadow:0 1px 2px #000,0 0 4px #000,0 0 6px #000; font:10px/1.4 ui-monospace,monospace; font-variant-numeric:tabular-nums; }
 .viewfinder-readout > span { display:flex; flex-wrap:wrap; gap:0 4px; align-content:start; }
 .viewfinder-readout > span:nth-child(2) { justify-content:center; }
 .viewfinder-readout > span:last-child { justify-content:end; }
@@ -200,23 +205,20 @@
 .camera-backdrop { overflow:hidden; padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left)); }
 .camera-modal.camera-experience { width:min(768px,100%); max-height:calc(100dvh - 20px); overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; -webkit-text-size-adjust:100%; }
 @media(max-width:799px) {
+  .camera-modal.camera-experience { padding:8px; }
+  .camera-demo,.camera-experience .camera-assembly { width:min(320px,calc(100vw - 36px)); max-width:100%; margin-inline:auto; }
+  .camera-demo .instant-camera,.camera-experience .instant-camera { padding:16px; }
   .camera-settings,.camera-experience .camera-settings { grid-template-columns:minmax(78px,1fr) 120px; grid-template-areas:"film dials" "flash dials"; gap:12px; margin-top:20px; }
   .camera-settings .flash-control { display:flex; align-items:center; justify-content:center; gap:6px; }
   .camera-settings .flash-control > span:first-child { width:auto; margin:0; }
   .camera-settings .film-presets { align-self:end; }
   .camera-experience .camera-assembly { max-width:380px; }
 }
-@media(min-width:420px) and (max-width:799px) {
-  .camera-settings,.camera-experience .camera-settings { grid-template-columns:minmax(86px,1fr) 120px 44px; grid-template-areas:"film dials flash"; }
-  .camera-settings .flash-control { display:block; }
-  .camera-settings .flash-control > span:first-child { display:block; width:100%; margin-bottom:10px; }
-  .camera-settings .film-presets { align-self:center; }
-}
 @media(max-width:370px) {
-  .camera-modal.camera-experience { padding:12px; }
+  .camera-modal.camera-experience { padding:8px; }
   .camera-settings,.camera-experience .camera-settings { column-gap:8px; }
   .camera-settings .film-presets { padding:5px!important; }
   .camera-settings .film-cartridge { width:20px; }
   .viewfinder-readout { gap:4px; padding:6px; font-size:9px; }
 }
-@media(prefers-reduced-motion:reduce) { .iso-markings > span { transition:none; } }
+@media(prefers-reduced-motion:reduce) { .iso-markings,.iso-markings > span { transition:none; } }

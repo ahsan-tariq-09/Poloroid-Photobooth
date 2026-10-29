@@ -174,6 +174,9 @@ beforeEach(async () => {
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
     drawImage: () => {},
   } as never);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "paused", "get").mockReturnValue(false);
+  vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(2);
 
   URL.revokeObjectURL = vi.fn();
 
@@ -559,7 +562,7 @@ describe("existing editor regression", () => {
 
     expect(stop).toHaveBeenCalled();
 
-    getUserMedia.mockRejectedValueOnce(new Error("Permission denied"));
+    getUserMedia.mockRejectedValueOnce(new DOMException("Permission denied", "NotAllowedError"));
 
     if (!host.querySelector('[aria-label="Take a photo"]')) await click(".wordmark");
     await click('[aria-label="Take a photo"]');

@@ -11,6 +11,11 @@ AGENTS.md
 docs
 test-results
 playwright-report
+.testmuai
+.playwright-mcp
+coverage
+*.evidence
+*.log
 *.tsbuildinfo
 .env*
 !.env.example

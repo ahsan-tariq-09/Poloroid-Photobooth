@@ -1,9 +1,54 @@
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import Camera from "./Camera";
 vi.mock("./studio/CameraPreview",()=>({default:()=>null}));
+
+beforeEach(()=>{
+  vi.spyOn(HTMLMediaElement.prototype,"play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype,"paused","get").mockReturnValue(false);
+  vi.spyOn(HTMLMediaElement.prototype,"readyState","get").mockReturnValue(2);
+  Object.defineProperty(HTMLVideoElement.prototype,"videoWidth",{configurable:true,value:640});
+  Object.defineProperty(HTMLVideoElement.prototype,"videoHeight",{configurable:true,value:480});
+});
+
+it("offers a gesture retry when inline camera playback is blocked",async()=>{
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+  const stop=vi.fn(),media={getTracks:()=>[{stop}]},getUserMedia=vi.fn().mockResolvedValue(media);
+  Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia}});
+  const play=vi.mocked(HTMLMediaElement.prototype.play).mockRejectedValueOnce(new DOMException("Blocked","NotAllowedError"));
+  const host=document.createElement("div"),root=createRoot(host);document.body.append(host);
+  try{
+    await act(async()=>root.render(<Camera initialSettings={{seconds:0,preset:"Classic",flash:false,iso:800}} enabled={false} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));
+    expect(host.textContent).toContain("Tap Retry camera");
+    expect(host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!.disabled).toBe(true);
+    const source=host.querySelector("video")!;
+    expect(source.muted).toBe(true);expect(source.playsInline).toBe(true);
+    await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="Retry camera")!.click());
+    expect(play).toHaveBeenCalledTimes(2);expect(getUserMedia).toHaveBeenCalledTimes(1);
+    expect(host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!.disabled).toBe(false);
+    await act(async()=>root.unmount());
+    expect(stop).toHaveBeenCalled();expect(source.srcObject).toBeNull();
+  }finally{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();}
+});
+
+it("does not arm the shutter until video is playing with a decoded frame",async()=>{
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+  Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia:vi.fn().mockResolvedValue({getTracks:()=>[{stop:vi.fn()}]})}});
+  const paused=vi.spyOn(HTMLMediaElement.prototype,"paused","get").mockReturnValue(true);
+  const host=document.createElement("div"),root=createRoot(host);document.body.append(host);
+  try{
+    await act(async()=>root.render(<Camera initialSettings={{seconds:0,preset:"Classic",flash:false,iso:800}} enabled={false} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));
+    const source=host.querySelector("video")!,shutter=host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!;
+    await act(async()=>source.dispatchEvent(new Event("loadeddata")));
+    expect(shutter.disabled).toBe(true);
+    paused.mockReturnValue(false);Object.defineProperty(source,"videoWidth",{configurable:true,value:0});
+    await act(async()=>source.dispatchEvent(new Event("playing")));expect(shutter.disabled).toBe(true);
+    Object.defineProperty(source,"videoWidth",{configurable:true,value:640});
+    await act(async()=>source.dispatchEvent(new Event("playing")));expect(shutter.disabled).toBe(false);
+  }finally{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();}
+});
 
 it("replaces the connecting status when camera permission is denied",async()=>{
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
@@ -18,6 +63,38 @@ it("replaces the connecting status when camera permission is denied",async()=>{
   }finally{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();}
 });
 
+it("requests camera access again after a permission failure",async()=>{
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+  const getUserMedia=vi.fn().mockRejectedValueOnce(new DOMException("Denied","NotAllowedError")).mockResolvedValue({getTracks:()=>[{stop:vi.fn()}]});
+  Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia}});
+  const host=document.createElement("div"),root=createRoot(host);document.body.append(host);
+  try{
+    await act(async()=>root.render(<Camera enabled={false} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));
+    await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="Retry camera")!.click());
+    expect(getUserMedia).toHaveBeenCalledTimes(2);
+    expect(host.querySelector('.viewfinder-status')!.textContent).toBe("ROLL TO LOAD FILM");
+  }finally{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();}
+});
+
+it("ignores an old playback failure after switching cameras and releases both streams",async()=>{
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+  const oldStop=vi.fn(),newStop=vi.fn(),oldStream={getTracks:()=>[{stop:oldStop}]},newStream={getTracks:()=>[{stop:newStop}]};
+  const getUserMedia=vi.fn().mockResolvedValueOnce(oldStream).mockResolvedValueOnce(newStream);
+  Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia}});
+  let rejectOld!:(error:Error)=>void;
+  vi.mocked(HTMLMediaElement.prototype.play).mockImplementationOnce(()=>new Promise((_,reject)=>{rejectOld=reject;}));
+  const host=document.createElement("div"),root=createRoot(host);document.body.append(host);
+  try{
+    await act(async()=>root.render(<Camera enabled={false} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));
+    await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Flip camera"]')!.click());
+    expect(oldStop).toHaveBeenCalled();
+    await act(async()=>rejectOld(new DOMException("Interrupted","AbortError")));
+    expect(host.querySelector('.viewfinder-status')!.textContent).toBe("ROLL TO LOAD FILM");
+    const source=host.querySelector("video")!;expect(source.srcObject).toBe(newStream);
+    await act(async()=>root.unmount());expect(newStop).toHaveBeenCalled();expect(source.srcObject).toBeNull();
+  }finally{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();}
+});
+
 it("starts with the settings and loaded film chosen on the home camera",async()=>{
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
   Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia:vi.fn().mockResolvedValue({getTracks:()=>[{stop:vi.fn()}]})}});
@@ -28,7 +105,7 @@ it("starts with the settings and loaded film chosen on the home camera",async()=
     expect(host.querySelector('[aria-label="Timer 5 seconds"]')!.getAttribute('aria-pressed')).toBe('true');
     expect([...host.querySelectorAll('button')].find(b=>b.textContent==='B&W')!.getAttribute('aria-pressed')).toBe('true');
     expect(host.querySelector('[aria-label="Flash effect"]')!.getAttribute('aria-checked')).toBe('true');
-    expect(host.querySelector<HTMLSelectElement>('[aria-label="ISO effect"]')!.value).toBe('1600');
+    expect(host.querySelector('[aria-label="ISO effect"]')!.getAttribute('aria-valuenow')).toBe('1600');
     expect(host.querySelector('.viewfinder-readout')!.textContent).toContain('1600');
     expect(host.querySelector('[aria-label="Roll film"]')!.getAttribute('aria-pressed')).toBe('true');
     expect(host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!.disabled).toBe(false);
@@ -78,7 +155,7 @@ it.each(["dimensions", "blob"])("allows a new attempt after a %s capture failure
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
   const host=document.createElement("div"),root=createRoot(host);document.body.append(host);
   Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia:vi.fn().mockResolvedValue({getTracks:()=>[{stop:vi.fn()}]})}});
-  Object.defineProperty(HTMLVideoElement.prototype,"videoWidth",{configurable:true,value:failure==="dimensions"?0:640});
+  Object.defineProperty(HTMLVideoElement.prototype,"videoWidth",{configurable:true,value:640});
   Object.defineProperty(HTMLVideoElement.prototype,"videoHeight",{configurable:true,value:480});
   vi.spyOn(HTMLCanvasElement.prototype,"getContext").mockReturnValue({drawImage:vi.fn(),translate:vi.fn(),scale:vi.fn(),getImageData:vi.fn(()=>({data:new Uint8ClampedArray([80,100,120,255]),width:1,height:1})),putImageData:vi.fn()} as never);
   vi.spyOn(HTMLCanvasElement.prototype,"toBlob").mockImplementation(cb=>cb(null));
@@ -86,6 +163,7 @@ it.each(["dimensions", "blob"])("allows a new attempt after a %s capture failure
     await act(async()=>root.render(<Camera enabled={false} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));
     await act(async()=>host.querySelector("video")!.dispatchEvent(new Event("loadeddata",{bubbles:true})));
     await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Roll film"]')!.click()); vi.useFakeTimers();const shutter=host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!;
+    if(failure==="dimensions")Object.defineProperty(HTMLVideoElement.prototype,"videoWidth",{configurable:true,value:0});
     await act(async()=>shutter.click());await act(async()=>vi.advanceTimersByTimeAsync(3000));
     expect(shutter.disabled).toBe(false);expect(host.textContent).toContain(failure==="dimensions"?"warming up":"could not be captured");
   } finally {vi.useRealTimers();await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();}
