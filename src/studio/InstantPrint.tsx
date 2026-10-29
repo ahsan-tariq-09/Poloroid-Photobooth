@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import { motion, useMotionValue } from "motion/react";
 import { Hand } from "lucide-react";
-import { SHUTTER_SOUND_MS } from "../sounds";
 import { createPhoneShakeDetector } from "./phoneShake";
 
 type MotionAccess = typeof DeviceMotionEvent & { requestPermission?: () => Promise<"granted" | "denied"> };
 export const PHOTO_DEVELOPMENT_MS = 10000;
-export const PRINT_EJECTION_MS = Math.max(5000,SHUTTER_SOUND_MS);
+export const PRINT_EJECTION_MS = 4000;
 
 /** Owns the blank-to-developed print, gestures, and optional phone sensor access. */
 export default function InstantPrint({ photos, caption, enabled, onReveal, onRetake }: {
