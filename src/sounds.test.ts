@@ -51,7 +51,13 @@ it("preloads both recordings once without starting audio", async () => {
   expect(fetch).toHaveBeenCalledWith("/audio/film-load.mp3");
   expect(fetch).toHaveBeenCalledWith("/audio/shutter.mp3");
   expect(ctx.resume).not.toHaveBeenCalled(); expect(sources).toHaveLength(0);
-  expect(sounds.FILM_LOAD_MS).toBe(2800); expect(sounds.SHUTTER_SOUND_MS).toBe(7728);
+  expect(sounds.FILM_LOAD_MS).toBe(2800); expect(sounds.SHUTTER_SOUND_MS).toBe(2490);
+});
+it("plays both trimmed recordings from the beginning", async () => {
+  await sounds.playSound("load");
+  expect(sources[0].start).toHaveBeenCalledWith();
+  await sounds.playSound("shutter");
+  expect(sources[1].start).toHaveBeenCalledWith();
 });
 it("resumes inside the gesture and awaits both resume and asynchronous decoding", async () => {
   const resume = deferred<void>(), decode = deferred<AudioBuffer>();

@@ -178,7 +178,7 @@ it.each([[640,480,80,0],[480,640,0,80]])("crops %s×%s video without stretching,
     vi.useFakeTimers();await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Roll film"]')!.click());
     await act(async()=>vi.advanceTimersByTimeAsync(2800));
     await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!.click());
-    await act(async()=>vi.advanceTimersByTimeAsync(12000+3*7728));
+    await act(async()=>vi.advanceTimersByTimeAsync(12000+3*2490));
     expect(toBlob).toHaveBeenCalledTimes(4); expect(stop).toHaveBeenCalled();
     // Both orientations crop a square source, rather than distorting the full frame.
     expect(draw).toHaveBeenCalledWith(host.querySelector("video"),sourceX,sourceY,480,480,0,0,480,480);
@@ -235,8 +235,8 @@ it.each([0,3,5,10])("uses the %s-second dial setting for each frame of a strip",
     if(seconds===3)await act(async()=>root.render(<Camera enabled={false} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));
     if(seconds){await act(async()=>vi.advanceTimersByTimeAsync(seconds*1000-1));expect(blob).not.toHaveBeenCalled();expect(button("Timer off").closest("fieldset")!.disabled).toBe(true);await act(async()=>vi.advanceTimersByTimeAsync(1));}
     expect(blob).toHaveBeenCalledTimes(1);
-    await act(async()=>vi.advanceTimersByTimeAsync(7727));expect(blob).toHaveBeenCalledTimes(1);
-    await act(async()=>vi.advanceTimersByTimeAsync(3*(seconds*1000+7728)-7727));expect(blob).toHaveBeenCalledTimes(4);expect(write).toHaveBeenCalledTimes(4);
+    await act(async()=>vi.advanceTimersByTimeAsync(2489));expect(blob).toHaveBeenCalledTimes(1);
+    await act(async()=>vi.advanceTimersByTimeAsync(3*(seconds*1000+2490)-2489));expect(blob).toHaveBeenCalledTimes(4);expect(write).toHaveBeenCalledTimes(4);
     const pixels=write.mock.calls[0][0].data;expect(pixels[0]).toBe(pixels[1]);expect(pixels[1]).toBe(pixels[2]);expect(host.querySelector(".capture-flash")).toBeNull();expect(host.querySelector(".capture-decisions")).toBeNull();
     if(seconds===0||seconds===3){await act(async()=>root.render(<Camera enabled={true} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));expect(host.querySelector(".capture-flash")).toBeNull();}
   }finally{vi.useRealTimers();await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();}

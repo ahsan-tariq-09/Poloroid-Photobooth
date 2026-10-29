@@ -1,6 +1,6 @@
 // Measured from the decoded recordings, including the shutter's film-ejection tail.
 export const FILM_LOAD_MS = 2800;
-export const SHUTTER_SOUND_MS = 7728;
+export const SHUTTER_SOUND_MS = 2490;
 const clips = { load: "/audio/film-load.mp3", shutter: "/audio/shutter.mp3" };
 type Clip = keyof typeof clips;
 let audio: AudioContext | undefined;
@@ -69,7 +69,8 @@ export async function playSound(kind: Clip | "paper" | "tick") {
     if (kind === "load" || kind === "shutter") {
       if (!buffer) return;
       const source = ctx.createBufferSource(); source.buffer = buffer;
-      source.connect(ctx.destination); track(source, []); source.start();
+      source.connect(ctx.destination); track(source, []);
+      source.start();
       return;
     }
     const duration = kind === "paper" ? .45 : .06;

@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import InstantPrint, { PHOTO_DEVELOPMENT_MS, PRINT_EJECTION_MS } from "./InstantPrint";
-vi.mock("../sounds",()=>({SHUTTER_SOUND_MS:7728}));
+vi.mock("../sounds",()=>({SHUTTER_SOUND_MS:2490}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
 async function setup(enabled=false){const host=document.createElement("div"),root=createRoot(host),reveal=vi.fn();document.body.append(host);await act(async()=>root.render(<InstantPrint photos={[{src:"photo.png",alt:"Captured moment"}]} caption="Today" enabled={enabled} onReveal={reveal}/>));return {host,reveal,close:async()=>{await act(async()=>root.unmount());host.remove();}};}
