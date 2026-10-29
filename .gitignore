@@ -1,25 +1,28 @@
+# Dependencies and build output
 node_modules/
 dist/
-.sites-runtime/
-.sites-checkout/
 *.tsbuildinfo
+
+# Test output and local Kane recordings
 test-results/
 playwright-report/
+.testmuai/
 .playwright-mcp/
 coverage/
 *.log
+
+# Local credentials; keep the shareable example
 .env*
 !.env.example
-.openai/
+
+# Deployment and local tooling
 .vercel/
-.agents/skills/impeccable/scripts/bin/
+.sites-runtime/
+.sites-checkout/
+.openai/
 .impeccable/
 .agents/
 
-
-#Ignore vscode AI rules
-.github\instructions\codacy.instructions.md
-.openai/
 # Local documentation and editor AI rules
 /.github/instructions/codacy.instructions.md
 /docs/

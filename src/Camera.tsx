@@ -3,7 +3,8 @@ import { X, RefreshCw, Upload, ArrowRight, Check } from "lucide-react";
 import { motion, useIsPresent } from "motion/react";
 import InstantCamera from "./studio/InstantCamera";
 import InstantPrint from "./studio/InstantPrint";
-import CameraSettings, { type TimerSeconds, type FilmPreset, type CameraPreferences } from "./studio/CameraSettings";
+import CameraSettings, { CameraReadout, type CameraISO, type TimerSeconds, type FilmPreset, type CameraPreferences } from "./studio/CameraSettings";
+import CameraPreview from "./studio/CameraPreview";
 import { applyCameraFilm } from "./studio/cameraFilm";
 import { playSound, unlockSound } from "./sounds";
 
@@ -20,6 +21,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
   const [facing,setFacing]=useState<"user"|"environment">("user"), [shots,setShots]=useState(1), [shot,setShot]=useState(0);
   const [prints,setPrints]=useState<{file:File;url:string}[]>([]), [revealed,setRevealed]=useState(false), [restart,setRestart]=useState(0);
   const [seconds,setSeconds]=useState<TimerSeconds>(initialSettings?.seconds ?? 3), [preset,setPreset]=useState<FilmPreset>(initialSettings?.preset ?? "Classic"), [flash,setFlash]=useState(initialSettings?.flash ?? false), [flashFrame,setFlashFrame]=useState(0);
+  const [iso,setISO]=useState<CameraISO>(initialSettings?.iso ?? 800);
   const motionEnabled=useRef(enabled);motionEnabled.current=enabled;
   const captured=prints.length>0;
   useEffect(()=>{if(!enabled)setFlashFrame(0);},[enabled]);
@@ -69,7 +71,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
       try{
         if(facing==="user"){ctx.translate(canvas.width,0);ctx.scale(-1,1);}
         ctx.drawImage(v,(v.videoWidth-canvas.width)/2,(v.videoHeight-canvas.height)/2,canvas.width,canvas.height,0,0,canvas.width,canvas.height);
-        ctx.putImageData(applyCameraFilm(ctx.getImageData(0,0,canvas.width,canvas.height),preset,flash),0,0);
+        ctx.putImageData(applyCameraFilm(ctx.getImageData(0,0,canvas.width,canvas.height),preset,flash,iso),0,0);
       }catch{fail("That photo could not be captured. Try again.");return;}
       playSound("shutter");setCount(null);if(flash&&motionEnabled.current)setFlashFrame(n=>n+1);
       canvas.toBlob(blob=>{
@@ -92,20 +94,22 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
       <div className="capture-heading"><div><h2 id="camera-title">{captured?"A moment, on paper.":"Take a photo"}</h2><p>{captured?(revealed?"Keep it simple, or make it your own.":"Shake the print to bring your photo into view."):"Roll the film, choose your settings, then click."}</p></div><button className="icon-button" aria-label="Close camera" onClick={onClose}><X size={20}/></button></div>
       {!captured&&<div className="capture-mode segmented" aria-label="Camera mode"><button aria-pressed={shots===1} disabled={shot>0} onClick={()=>setShots(1)}>Single Polaroid</button><button aria-pressed={shots===4} disabled={shot>0} onClick={()=>setShots(4)}>4-shot strip</button></div>}
       <InstantCamera printed={captured} print={captured?<InstantPrint photos={prints.map(p=>({src:p.url,alt:"Your captured photo"}))} caption={prints.length>1?"Four little moments":"Just now."} enabled={enabled} onReveal={()=>setRevealed(true)} onRetake={roll}/>:undefined}
-        settings={<CameraSettings seconds={seconds} onSeconds={setSeconds} preset={preset} onPreset={setPreset} flash={flash} onFlash={setFlash} disabled={shot>0}/>}
+        settings={<CameraSettings seconds={seconds} onSeconds={setSeconds} preset={preset} onPreset={setPreset} flash={flash} onFlash={setFlash} iso={iso} onISO={setISO} disabled={shot>0}/>}
         onRoll={roll} rollDisabled={shot>0||(!ready&&!captured)} loaded={filmLoaded} onShutter={take} disabled={!ready||!filmLoaded||shot>0||captured} label="Capture" status={captured?"PRINT READY":shot?`SHOT ${shot} OF ${shots}`:ready?(filmLoaded?`READY · ${seconds?`TIMER ${seconds}s`:"TIMER OFF"}`:"ROLL TO LOAD FILM"):error?"CAMERA UNAVAILABLE":"CONNECTING CAMERA"} controls={!captured?<button className="camera-flip" aria-label="Flip camera" disabled={shot>0} onClick={()=>setFacing(f=>f==="user"?"environment":"user")}><RefreshCw size={18}/></button>:undefined}>
         <video ref={video} autoPlay playsInline muted style={{transform:facing==="user"?"scaleX(-1)":undefined}} onLoadedData={()=>setReady(true)}/>
+        {ready&&!captured&&<CameraPreview video={video} preset={preset} iso={iso} flash={flash} mirrored={facing==="user"}/>}
+        <CameraReadout seconds={seconds} preset={preset} iso={iso}/>
         {!captured&&<span className={!ready||error?"camera-message":"sr-only"} role="status">{error||(!ready?"Waiting for your camera…":filmLoaded?"Film loaded. Click the shutter.":"Camera ready. Roll the film, then click the shutter.")}</span>}
         {count!==null&&<span className="countdown" aria-live="assertive">{count}</span>}
       </InstantCamera>
       {captured&&<>
         {revealed&&<>
         <div className="capture-decisions"><button className="primary-button" onClick={()=>onCapture(prints.map(p=>p.file),prints.length>1?"scrapbook":"edit")}>Develop <ArrowRight size={17}/></button><button className="secondary-button" onClick={()=>onCapture(prints.map(p=>p.file),prints.length>1?"scrapbook":"finish")}><Check size={17}/> Done</button></div>
-        <p className="field-hint">{prints.length>1?"Arrange your shots in the photo-strip builder.":"Develop opens the editor. Done keeps the photo movable."}</p>
+        <p className="field-hint">{prints.length>1?"Arrange your shots in the photo-strip builder.":"Develop opens the editor. Done keeps the photo just as you took it."}</p>
         </>}
       </>}
       {enabled&&flashFrame>0&&<motion.div key={flashFrame} className="capture-flash" aria-hidden="true" initial={{opacity:.28}} animate={{opacity:0}} transition={{duration:.32}} onAnimationComplete={()=>setFlashFrame(0)}/>}
-      {!captured&&<p className="field-hint">Flash adds a soft digital fill to your photo.</p>}
+      {!captured&&<p className="field-hint">ISO simulates exposure and grain. Flash adds a soft digital fill.</p>}
       {!captured&&<button className="text-button camera-upload" onClick={onUpload}><Upload size={15}/> Upload a photo instead</button>}
     </div>
   </motion.div>;

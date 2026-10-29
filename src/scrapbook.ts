@@ -70,7 +70,7 @@ function openDatabase():Promise<IDBDatabase> {
     const request=indexedDB.open("poloroid-scrapbook",1);
     request.onupgradeneeded=()=>request.result.createObjectStore("pages");
     request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
-    request.onblocked=()=>reject(new Error("Close other Polaroid tabs, then save again."));
+    request.onblocked=()=>reject(new Error("Close other roid tabs, then save again."));
   });
 }
 export async function saveScrapbook(book:Scrapbook) {

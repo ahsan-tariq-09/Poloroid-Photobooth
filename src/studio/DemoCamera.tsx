@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import InstantCamera from "./InstantCamera";
 import { playSound } from "../sounds";
-import CameraSettings, { type TimerSeconds, type FilmPreset, type CameraPreferences } from "./CameraSettings";
+import CameraSettings, { CameraReadout, type CameraISO, type TimerSeconds, type FilmPreset, type CameraPreferences } from "./CameraSettings";
 import { applyCameraFilm } from "./cameraFilm";
 
 /** Interactive controls around a display photograph; captures use the real camera. */
 export default function DemoCamera({ busy, onCamera }: { busy:boolean; onCamera:(settings:CameraPreferences)=>void }) {
   const [seconds,setSeconds]=useState<TimerSeconds>(3),[preset,setPreset]=useState<FilmPreset>("Classic"),[flash,setFlash]=useState(false);
+  const [iso,setISO]=useState<CameraISO>(800);
   const [loaded,setLoaded]=useState(false),[sourceReady,setSourceReady]=useState(false);
   const source=useRef<HTMLImageElement>(null),preview=useRef<HTMLCanvasElement>(null);
   useEffect(()=>{
@@ -20,19 +21,21 @@ export default function DemoCamera({ busy, onCamera }: { busy:boolean; onCamera:
       ctx.globalAlpha=.93;
       ctx.drawImage(image,(image.naturalWidth-size)/2,(image.naturalHeight-size)/2,size,size,0,0,canvas.width,canvas.height);
       ctx.globalAlpha=1;
-      ctx.putImageData(applyCameraFilm(ctx.getImageData(0,0,canvas.width,canvas.height),preset,flash),0,0);
+      ctx.putImageData(applyCameraFilm(ctx.getImageData(0,0,canvas.width,canvas.height),preset,flash,iso),0,0);
       canvas.style.visibility="visible";
     }catch{canvas.style.visibility="hidden";}
-  },[sourceReady,preset,flash]);
-  const openCamera=()=>{setLoaded(true);playSound("paper");onCamera({seconds,preset,flash});};
+  },[sourceReady,preset,flash,iso]);
+  const openCamera=()=>{setLoaded(true);playSound("paper");onCamera({seconds,preset,flash,iso});};
   return <div className="camera-demo">
     <p className="demo-instruction roll-instruction">Choose your settings, then roll the film to take a photo.</p>
     <InstantCamera onRoll={openCamera} rollDisabled={busy} loaded={loaded}
       onShutter={openCamera} disabled={busy} label="Take a photo with this camera"
-      settings={<CameraSettings seconds={seconds} onSeconds={setSeconds} preset={preset} onPreset={setPreset} flash={flash} onFlash={setFlash} disabled={busy}/>}
+      settings={<CameraSettings seconds={seconds} onSeconds={setSeconds} preset={preset} onPreset={setPreset} flash={flash} onFlash={setFlash} iso={iso} onISO={setISO} disabled={busy}/>}
       status="DISPLAY PHOTO · ROLL TO START">
       <img ref={source} src="/sample-flash.webp" onLoad={()=>setSourceReady(true)} alt="AI-generated vintage party display photo"/>
       <canvas ref={preview} className="demo-film-preview" aria-hidden="true" style={{visibility:"hidden"}}/>
+      <CameraReadout seconds={seconds} preset={preset} iso={iso}/>
     </InstantCamera>
+    <p className="camera-effect-note">ISO simulates exposure and grain. Film changes appear in your photo.</p>
   </div>;
 }

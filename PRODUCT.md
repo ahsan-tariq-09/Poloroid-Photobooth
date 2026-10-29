@@ -1,4 +1,4 @@
-# Polaroid
+# roid beta
 
 <!-- impeccable:product-schema 1 -->
 
@@ -14,7 +14,7 @@ Make personal instant-photo keepsakes in a browser. Take a photo, choose Develop
 
 Existing React, TypeScript, Vite application. Keep photos on the device. Preserve the editing tools, undo history, supported imports, four export formats and physical print dimensions. Imports preserve the full source and its proportions; users decide positioning and cropping. Finished output is clipped to the outer frame. Warm film is the default at 65%; Original, Black & white and Copy shop remain available. Caption and independent text colors are editable.
 
-Camera capture offers a single Polaroid or a four-shot strip. Develop opens editing; Done opens Finish for a single photo, with repositioning retained. The strip joins the scrapbook. Camera permissions are requested through an explicit action. Sound has an accessible mute control. Respect reduced motion.
+Camera capture offers a single Polaroid or a four-shot strip. ISO 100–3200 simulates exposure gain and grain, with 800 as the neutral setting; browser sensor ISO is not controlled. Viewfinders show ISO, film and timer settings and preview the film treatment live. Prints eject over five seconds before shake controls become available; reduced motion settles immediately. Develop opens editing; Done opens a read-only Finish for a single photo. Finish offers download, print and scrapbook actions; Back to editing returns to the editing tools. The strip joins the scrapbook. Camera permissions are requested through an explicit action. Sound has an accessible mute control. Respect reduced motion.
 
 The scrapbook holds one current page with up to 12 photos. It supports overlapping, tilted Polaroids with tape or a continuous vertical photo strip, page title and paper color, and PNG page downloads. Save on device explicitly writes the page and editable photo sources to IndexedDB. Reopening a saved photo supports updating its original scrapbook item. Unsaved edits remain temporary; clearing site data removes saved work. There is no account or cross-device sync.
 
@@ -22,7 +22,7 @@ The production PWA precaches the app shell, built code and codecs, demo image, i
 
 ## Brand Commitments
 
-The brand name is Polaroid. The user's Canva camera reference supplies black leather, metallic controls, green viewfinder markings and a red shutter. The requested mood combines nostalgic technology with a restrained modern interface. Specific copy, no fabricated proof, no pricing, and no excessive whitespace.
+The brand name is lowercase roid, with a beta label. Polaroid remains the name for the finished photo. The user's Canva camera reference supplies black leather, metallic controls, green viewfinder markings and a red shutter. The requested mood combines nostalgic technology with a restrained modern interface. Specific copy, no fabricated proof, no pricing, and no excessive whitespace.
 
 ## Evidence on Hand
 

@@ -79,12 +79,12 @@ function StudioApp() {
     previousPath.current = path;
     document.title =
       path === "/edit"
-        ? "Edit · Polaroid"
+        ? "Edit · roid beta"
         : path === "/finish"
-          ? "Finish · Polaroid"
+          ? "Finish · roid beta"
           : path === "/scrapbook"
-            ? "Scrapbook · Polaroid"
-          : "Create a Polaroid · Polaroid";
+            ? "Scrapbook · roid beta"
+          : "Create a Polaroid · roid beta";
     document.querySelector<HTMLElement>("main h1")?.focus();
     window.scrollTo?.(0, 0);
   }, [path]);
@@ -168,7 +168,7 @@ function StudioApp() {
         />
         <header className="site-header">
           <Link className="wordmark" to="/" onClick={s.leaveEditor}>
-            Polaroid<span className="wordmark-dot">.</span>
+            roid <span className="brand-beta">beta</span>
           </Link>
           <div className="header-controls"><nav aria-label="Studio steps">
             {(
@@ -242,10 +242,10 @@ function StudioApp() {
         </Routes>
         <footer className="project-about" aria-labelledby="about-title">
           <div>
-            <h2 id="about-title">About Polaroid</h2>
+            <h2 id="about-title">About roid</h2>
           </div>
           <div className="about-copy">
-            <p>Polaroid is a playful photo studio inspired by instant photography and the joy of making things by hand. Turn a photo into a keepsake: cut it up, layer it, add a few words, and make it yours.</p>
+            <p>roid is a playful photo studio inspired by instant photography and the joy of making things by hand. Turn a photo into a keepsake: cut it up, layer it, add a few words, and make it yours.</p>
             <p>Made in your browser, with your photos staying on your device. Download your artwork, print it, or pair it with a 3D-printable frame.</p>
             <p className="field-hint">Save your scrapbook on this device, or download your Polaroid to keep it. Unsaved edits clear when you close or refresh.</p>
             <InstallApp/>

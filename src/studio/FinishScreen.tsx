@@ -2,7 +2,7 @@ import { ArrowLeft, Download, Printer, BookOpen } from "lucide-react";
 import { Link } from "react-router";
 import type { Studio } from "./useStudioSession";
 import type { ExportFormat } from "../render";
-import FinishPosition from "./FinishPosition";
+import CompositionPreview from "./CompositionPreview";
 
 export default function FinishScreen({ studio: s, onScrapbook, scrapbookBusy, updatingScrapbook = false }: { studio: Studio; onScrapbook: () => void; scrapbookBusy: boolean; updatingScrapbook?: boolean }) {
   return (
@@ -10,7 +10,7 @@ export default function FinishScreen({ studio: s, onScrapbook, scrapbookBusy, up
       <div className="page-heading">
         <div>
           <h1 tabIndex={-1}>Your Polaroid</h1>
-          <p>Drag your photo to adjust it. Download when it feels right.</p>
+          <p>Ready to keep. Download, print or add it to your scrapbook.</p>
         </div>
         <Link to="/edit" className="text-button">
           <ArrowLeft size={16} /> Back to editing
@@ -18,7 +18,7 @@ export default function FinishScreen({ studio: s, onScrapbook, scrapbookBusy, up
       </div>
       <div className="finish-layout">
         <div className="finished-art">
-          <FinishPosition studio={s}/>
+          <CompositionPreview assets={s.assets} composition={s.composition} label="Finished Polaroid" scale={1.5}/>
         </div>
         <section className="finish-options" aria-label="Save your Polaroid">
           <h2>Keep this moment.</h2>

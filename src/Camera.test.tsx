@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import Camera from "./Camera";
+vi.mock("./studio/CameraPreview",()=>({default:()=>null}));
 
 it("replaces the connecting status when camera permission is denied",async()=>{
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
@@ -22,11 +23,13 @@ it("starts with the settings and loaded film chosen on the home camera",async()=
   Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia:vi.fn().mockResolvedValue({getTracks:()=>[{stop:vi.fn()}]})}});
   const host=document.createElement("div"),root=createRoot(host);document.body.append(host);
   try{
-    await act(async()=>root.render(<Camera initialSettings={{seconds:5,preset:"B&W",flash:true}} enabled={false} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));
+    await act(async()=>root.render(<Camera initialSettings={{seconds:5,preset:"B&W",flash:true,iso:1600}} enabled={false} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));
     await act(async()=>host.querySelector('video')!.dispatchEvent(new Event('loadeddata',{bubbles:true})));
     expect(host.querySelector('[aria-label="Timer 5 seconds"]')!.getAttribute('aria-pressed')).toBe('true');
     expect([...host.querySelectorAll('button')].find(b=>b.textContent==='B&W')!.getAttribute('aria-pressed')).toBe('true');
     expect(host.querySelector('[aria-label="Flash effect"]')!.getAttribute('aria-checked')).toBe('true');
+    expect(host.querySelector<HTMLSelectElement>('[aria-label="ISO effect"]')!.value).toBe('1600');
+    expect(host.querySelector('.viewfinder-readout')!.textContent).toContain('1600');
     expect(host.querySelector('[aria-label="Roll film"]')!.getAttribute('aria-pressed')).toBe('true');
     expect(host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!.disabled).toBe(false);
   }finally{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();}

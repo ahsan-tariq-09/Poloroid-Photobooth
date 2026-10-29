@@ -17,6 +17,6 @@ export default function InstallApp() {
     return()=>{alive=false;window.removeEventListener('beforeinstallprompt',available);window.removeEventListener('appinstalled',done);};
   },[]);
   if(installed)return <p className="field-hint" role="status">{offline}</p>;
-  return <div className="install-app">{import.meta.env.PROD&&<p className="field-hint" role="status">{offline}</p>}<button className="text-button" onClick={()=>{if(prompt){void prompt.prompt().then(()=>prompt.userChoice).then(()=>setPrompt(null)).catch(()=>setHelp(true));}else setHelp(v=>!v);}}><Download size={15}/> Install Polaroid</button>{help&&<p role="status">On iPhone or iPad, open this site in Safari, tap Share, then Add to Home Screen. On Android, use your browser menu and choose Install app or Add to Home screen.</p>}</div>;
+  return <div className="install-app">{import.meta.env.PROD&&<p className="field-hint" role="status">{offline}</p>}<button className="text-button" onClick={()=>{if(prompt){void prompt.prompt().then(()=>prompt.userChoice).then(()=>setPrompt(null)).catch(()=>setHelp(true));}else setHelp(v=>!v);}}><Download size={15}/> Install roid</button>{help&&<p role="status">On iPhone or iPad, open this site in Safari, tap Share, then Add to Home Screen. On Android, use your browser menu and choose Install app or Add to Home screen.</p>}</div>;
 }
 

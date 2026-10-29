@@ -20,6 +20,9 @@
 .camera-display > video { object-fit:cover; }
 .camera-demo .camera-display > img { filter:brightness(.93); }
 .demo-film-preview { position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover; }
+.live-film-preview { position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover; }
+.preview-effect-error { position:absolute; inset:40px 8px auto; z-index:2; padding:8px; color:#fff9e9; background:#142012ee; font-size:12px; }
+.camera-nameplate small { font:600 9px/1 ui-monospace,monospace; letter-spacing:.04em; vertical-align:middle; }
 .camera-screw { position:absolute; width:6px; height:6px; background:linear-gradient(45deg,#b5baab 40%,#24291f 42%,#24291f 57%,#b5baab 60%); border-radius:50%; box-shadow:0 1px 2px #000; }
 .screw-tl { top:4px;left:4px; }.screw-tr { top:4px;right:4px; }.screw-bl { bottom:4px;left:4px; }.screw-br { bottom:4px;right:4px; }
 .viewfinder-status { font-size:9px; letter-spacing:.05em; background:#142012dd; padding:5px 7px; top:8px; left:8px; right:auto; }
@@ -107,17 +110,17 @@
 @media(max-width:700px) { .camera-assembly { --camera-pad:16px; } }
 @media(max-width:370px) { .camera-assembly { --camera-pad:12px; } }
 /* Knurled timer, metal film cartridges and a two-position flash lever. */
-.camera-settings { display:grid; grid-template-columns:120px minmax(100px,1fr) 48px; gap:12px; align-items:center; margin-top:20px; color:#f5f1e5; }
+.camera-settings { display:grid; grid-template-columns:minmax(86px,1fr) 120px 44px; gap:12px; align-items:center; margin-top:20px; color:#f5f1e5; }
 .camera-settings fieldset { min-width:0; border:0; margin:0; padding:0; }
 .camera-settings legend,.flash-control > span:first-child { color:#f5f1e5; font-size:12px; font-weight:600; margin-bottom:10px; text-align:center; width:100%; }
-.timer-dial { position:relative; width:120px; height:120px; }
+.timer-dial { position:relative; width:96px; height:96px; margin:auto; }
 .timer-rotor { position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle,#232625 60%,transparent 61%),repeating-conic-gradient(#b5b6ac 0deg 2deg,#282a26 2deg 6deg); box-shadow:0 3px 7px #000,inset 0 0 0 2px #74776e; transition:transform var(--duration-fast) var(--ease-smooth-out); }
 .timer-stop > span { display:block; transition:transform var(--duration-fast) var(--ease-smooth-out); }
 .timer-stop { position:absolute; width:44px; height:44px; min-height:44px; padding:0; background:none; border:0; border-radius:50%; color:#f8f6ed; font-size:11px; z-index:1; }
 .timer-stop[aria-pressed=true] { color:#ffdb98; font-weight:700; background:#f4d18b14; }
 .timer-stop:hover:not(:disabled) { background:#fff2; }
-.stop-0 { top:0;left:38px; }.stop-1 { right:0;top:38px; }.stop-2 { bottom:0;left:38px; }.stop-3 { left:0;top:38px; }
-.dial-hub { position:absolute; width:24px;height:24px;top:48px;left:48px;border:1px solid #eee;border-radius:50%;background:linear-gradient(90deg,#565b58,#dce0d8); }
+.stop-0 { top:3px;left:3px; }.stop-1 { right:3px;top:3px; }.stop-2 { bottom:3px;right:3px; }.stop-3 { left:3px;bottom:3px; }
+.dial-hub { position:absolute; width:14px;height:14px;top:41px;left:41px;border:1px solid #eee;border-radius:50%;background:linear-gradient(90deg,#565b58,#dce0d8); }
 .timer-pointer { position:absolute; inset:-6px; border-radius:50%; pointer-events:none; z-index:2; }
 .timer-pointer::before { content:''; position:absolute; top:0;left:calc(50% - 5px); border:5px solid transparent; border-top:8px solid #ec7662; }
 .hardware-value { display:block; text-align:center; font-size:11px; color:#e6ddc8; margin-top:10px; }
@@ -138,14 +141,8 @@
 .flash-led { position:absolute;right:3px;bottom:6px;width:7px;height:7px;border-radius:50%;background:#bd5745; }
 .flash-switch[aria-checked=true] .flash-led { background:#9bdea4; }
 .capture-flash { position:fixed;inset:0;background:#fff6df;pointer-events:none;z-index:20; }
-.camera-experience .camera-settings { grid-template-columns:120px minmax(110px,200px) 48px; justify-content:space-between; }
-@media(max-width:700px) { .camera-settings,.camera-experience .camera-settings { grid-template-columns:120px minmax(0,1fr); gap:14px 10px; }.flash-control { grid-column:1;grid-row:2;display:flex;align-items:center;justify-content:center;gap:6px; }.flash-control > span:first-child { width:auto;margin:0; }.flash-control .hardware-value { margin:0; }.flash-switch { height:68px; }.film-presets { grid-column:2;grid-row:1 / span 2; }.camera-settings { margin-top:16px; } }
-@media(min-width:420px) and (max-width:700px) {
-  .camera-experience .camera-settings { grid-template-columns:120px minmax(0,1fr) 48px; gap:10px; }
-  .camera-experience .film-presets { grid-column:auto; grid-row:auto; }
-  .camera-experience .flash-control { grid-column:auto; grid-row:auto; display:block; }
-  .camera-experience .flash-control > span:first-child { display:block; width:100%; margin-bottom:10px; }
-}
+.camera-experience .camera-settings { grid-template-columns:minmax(86px,1fr) 120px 44px; justify-content:space-between; }
+
 @media(prefers-reduced-motion:reduce) { .timer-rotor,.timer-stop > span,.flash-lever::after { transition:none; } }
 .camera-display .countdown { position:absolute; inset:0; display:grid; place-items:center; color:#fff9e9; background:#1118; font:700 72px/1 Georgia,serif; z-index:3; }
 @media(max-width:370px) { .film-presets button { padding:2px;gap:4px;font-size:11px; }.film-presets legend { font-size:12px; }.film-cartridge { width:20px;height:24px;border-inline-width:3px; } }
@@ -160,7 +157,7 @@
   .camera-assembly .instant-camera { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:24px; }
   .camera-nameplate,.camera-hardware,.ejection-slot { grid-column:1 / -1; }
   .viewfinder-bezel { align-self:center; }
-  .camera-settings,.camera-experience .camera-settings { margin-top:0; grid-template-columns:120px minmax(100px,1fr) 48px; align-self:center; }
+  .camera-settings,.camera-experience .camera-settings { margin-top:0; grid-template-columns:minmax(86px,1fr) 120px 44px; align-self:center; }
   .camera-assembly .ejection-slot { width:var(--desktop-print-width); max-width:100%; margin-inline:auto; }
   .print-outlet { padding-inline:0; }
   .instant-print { width:var(--desktop-print-width); max-width:100%; }
@@ -176,3 +173,50 @@
 .camera-backdrop .capture-heading .icon-button:hover, .camera-backdrop .camera-experience > .text-button:hover, .camera-backdrop .secondary-button:hover { background:#566149; }
 .camera-backdrop .roll-instruction { color:var(--muted); }
 .camera-backdrop .camera-experience :focus-visible { outline-color:#d9edb6; }
+
+/* Keep hit targets fixed: turning the dial must never move a control under a finger. */
+.camera-settings { grid-template-areas:"film dials flash"; align-items:center; }
+.camera-dials { grid-area:dials; display:grid; gap:20px; justify-items:center; min-width:0; }
+.film-presets { grid-area:film; align-self:center; }
+.flash-control { grid-area:flash; }
+.camera-settings legend { float:none; display:block; max-width:100%; }
+.camera-settings .film-presets legend { width:auto; }
+.camera-settings .film-cartridge { width:25px; border-inline-width:4px; }
+.camera-settings .film-presets button { min-height:44px; gap:5px; font-size:11px; }
+.camera-settings .film-presets button span { overflow-wrap:anywhere; }
+.iso-dial { position:relative; width:120px; height:120px; border-radius:50%; background:radial-gradient(circle,#232625 61%,transparent 62%),repeating-conic-gradient(#b5b6ac 0deg 2deg,#282a26 2deg 6deg); box-shadow:0 3px 7px #000,inset 0 0 0 2px #74776e; }
+.iso-markings { position:absolute; inset:0; pointer-events:none; }
+.iso-markings > span { position:absolute; top:50%; left:50%; width:32px; height:14px; margin:-7px 0 0 -16px; text-align:center; font:10px/1.4 ui-monospace,monospace; transition:transform var(--duration-fast) var(--ease-smooth-out); }
+.iso-dial select { appearance:none; -webkit-appearance:none; position:absolute; top:38px; left:26px; width:68px; min-height:44px; padding:0 16px 0 4px; border:1px solid #b1b7a6; border-radius:22px; background:#363e32; color:#fff9e9; font:600 16px ui-monospace,monospace; text-align:center; cursor:pointer; }
+.iso-chevron { position:absolute; top:54px; right:31px; color:#fff9e9; pointer-events:none; }
+.iso-dial select:focus-visible { outline:3px solid #d9edb6; outline-offset:4px; }
+.viewfinder-readout { position:absolute; inset:0 0 auto; z-index:2; display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:8px; padding:8px; color:#d5f3af; background:#0d1b0ce8; font:10px/1.4 ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+.viewfinder-readout > span { display:flex; flex-wrap:wrap; gap:0 4px; align-content:start; }
+.viewfinder-readout > span:nth-child(2) { justify-content:center; }
+.viewfinder-readout > span:last-child { justify-content:end; }
+.viewfinder-status { top:auto; bottom:8px; max-width:calc(100% - 16px); }
+.viewfinder-corners { inset:44px 15px 38px; }
+.camera-effect-note { margin:10px 0 0; text-align:center; color:var(--muted); font-size:12px; line-height:1.5; }
+.camera-backdrop { overflow:hidden; padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left)); }
+.camera-modal.camera-experience { width:min(768px,100%); max-height:calc(100dvh - 20px); overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; -webkit-text-size-adjust:100%; }
+@media(max-width:799px) {
+  .camera-settings,.camera-experience .camera-settings { grid-template-columns:minmax(78px,1fr) 120px; grid-template-areas:"film dials" "flash dials"; gap:12px; margin-top:20px; }
+  .camera-settings .flash-control { display:flex; align-items:center; justify-content:center; gap:6px; }
+  .camera-settings .flash-control > span:first-child { width:auto; margin:0; }
+  .camera-settings .film-presets { align-self:end; }
+  .camera-experience .camera-assembly { max-width:380px; }
+}
+@media(min-width:420px) and (max-width:799px) {
+  .camera-settings,.camera-experience .camera-settings { grid-template-columns:minmax(86px,1fr) 120px 44px; grid-template-areas:"film dials flash"; }
+  .camera-settings .flash-control { display:block; }
+  .camera-settings .flash-control > span:first-child { display:block; width:100%; margin-bottom:10px; }
+  .camera-settings .film-presets { align-self:center; }
+}
+@media(max-width:370px) {
+  .camera-modal.camera-experience { padding:12px; }
+  .camera-settings,.camera-experience .camera-settings { column-gap:8px; }
+  .camera-settings .film-presets { padding:5px!important; }
+  .camera-settings .film-cartridge { width:20px; }
+  .viewfinder-readout { gap:4px; padding:6px; font-size:9px; }
+}
+@media(prefers-reduced-motion:reduce) { .iso-markings > span { transition:none; } }

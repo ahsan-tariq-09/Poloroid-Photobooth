@@ -10,7 +10,7 @@ export default function InstantCamera({ children, onShutter, disabled, label = "
   settings?: ReactNode;
 }) {
   return <div className={`camera-assembly ${printed?"has-print":""}`}><div className="instant-camera">
-    <div className="camera-nameplate"><span>POLAROID</span><span className="camera-indicator">INSTANT<br/>COLOR</span></div>
+    <div className="camera-nameplate"><span>roid <small>beta</small></span><span className="camera-indicator">INSTANT<br/>COLOR</span></div>
     <div className="viewfinder-bezel"><i className="camera-screw screw-tl" aria-hidden="true"/><i className="camera-screw screw-tr" aria-hidden="true"/><i className="camera-screw screw-bl" aria-hidden="true"/><i className="camera-screw screw-br" aria-hidden="true"/><div className="camera-display">{children}<div className="viewfinder-corners" aria-hidden="true"/><span className="viewfinder-status">{status}</span></div></div>
     {!printed&&settings}
     <div className="camera-hardware">

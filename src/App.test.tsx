@@ -535,7 +535,7 @@ describe("existing editor regression", () => {
     ]);
     expect(host.querySelector(".printable-frames")?.tagName).toBe("SECTION");
     expect(host.querySelectorAll('.printable-frames a[href*="printables.com"]')).toHaveLength(2);
-    expect(host.querySelector("#about-title")?.textContent).toBe("About Polaroid");
+    expect(host.querySelector("#about-title")?.textContent).toBe("About roid");
     expect(host.querySelector(".project-about")?.textContent).toContain("photos staying on your device");
     expect(host.querySelector(".project-about")?.textContent).not.toMatch(/CS\s*335/i);
   });
@@ -571,6 +571,25 @@ describe("existing editor regression", () => {
 });
 
 describe("photo-first navigation and sessions", () => {
+  it("keeps the finished composition read-only until Back to editing", async () => {
+    await startClassic();
+    const before = structuredClone(comp());
+    await button("Continue");
+    const preview = host.querySelector<HTMLCanvasElement>('[aria-label="Finished Polaroid"]')!;
+    expect(preview).not.toBeNull();
+    expect(host.querySelector('[aria-label^="Move photo inside"]')).toBeNull();
+    expect(host.querySelector('[aria-label^="Move "]')).toBeNull();
+    expect(host.querySelector('[aria-label="Center photo"]')).toBeNull();
+    expect(host.querySelector(".finish-screen input")).toBeNull();
+    expect(host.querySelectorAll(".finish-screen select")).toHaveLength(1);
+    await act(async () => {
+      preview.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
+    });
+    await click('a[href="/edit"]');
+    expect(comp()).toEqual(before);
+  });
+
   it("starts without editing controls, and guards direct Edit and Finish routes", async () => {
     expect(host.textContent).toContain("Keep a little");
     expect(host.querySelector(".editor-controls")).toBeNull();
@@ -779,7 +798,13 @@ describe("photo-first navigation and sessions", () => {
       await act(async()=>develop.click());
       vi.useRealTimers(); await flush();
       expect(window.location.pathname).toBe(destination);
-      if (destination === "/finish") await click('a[href="/edit"]');
+      if (destination === "/finish") {
+        expect(host.querySelector('[aria-label="Finished Polaroid"]')).not.toBeNull();
+        expect(host.querySelector('[aria-label^="Move photo inside"]')).toBeNull();
+        expect(host.querySelector('[aria-label^="Move "]')).toBeNull();
+        expect(host.querySelector('[aria-label="Center photo"]')).toBeNull();
+        await click('a[href="/edit"]');
+      }
       expect(comp().layers[0].name).toBe("camera-photo.png");
       expect(comp()).toMatchObject({caption:"Just now.",captionFont:"caveat",captionSize:32});
       expect(stop).toHaveBeenCalled();

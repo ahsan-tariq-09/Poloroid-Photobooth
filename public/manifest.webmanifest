@@ -1,5 +1,5 @@
 {
-  "id": "/", "name": "Polaroid · Instant photo studio", "short_name": "Polaroid",
+  "id": "/", "name": "roid beta · Instant photo studio", "short_name": "roid beta",
   "description": "Take instant photos, build scrapbook collages and make photobooth strips on your device.",
   "start_url": "/", "scope": "/", "display": "standalone",
   "background_color": "#eeeadd", "theme_color": "#eeeadd",

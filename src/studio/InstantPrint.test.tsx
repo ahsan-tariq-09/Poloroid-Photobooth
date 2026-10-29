@@ -11,6 +11,12 @@ it("waits for the complete ten-second development before enabling the next actio
   expect(PHOTO_DEVELOPMENT_MS).toBe(10000);
   vi.useFakeTimers();const s=await setup(true);
   try{
+    expect(s.host.querySelector<HTMLButtonElement>('.shake-reveal')!.disabled).toBe(true);
+    await act(async()=>vi.advanceTimersByTime(4999));
+    expect(s.host.querySelector<HTMLButtonElement>('.shake-reveal')!.disabled).toBe(true);
+    expect(s.reveal).not.toHaveBeenCalled();
+    await act(async()=>vi.advanceTimersByTime(1));
+    expect(s.host.querySelector<HTMLButtonElement>('.shake-reveal')!.disabled).toBe(false);
     await act(async()=>s.host.querySelector<HTMLButtonElement>('.shake-reveal')!.click());
     await act(async()=>vi.advanceTimersByTime(650));
     expect(s.host.querySelector('img')).not.toBeNull();expect(s.reveal).not.toHaveBeenCalled();

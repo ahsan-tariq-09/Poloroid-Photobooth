@@ -13,13 +13,19 @@ it("keeps home controls working and opens the real camera with their settings",a
     await act(async()=>root.render(<DemoCamera busy={false} onCamera={open}/>));
     await act(async()=>{button("Timer 5 seconds").click();[...host.querySelectorAll('button')].find(b=>b.textContent==='B&W')!.click();button("Flash effect").click();});
     expect(open).not.toHaveBeenCalled();
+    const iso=host.querySelector<HTMLSelectElement>('[aria-label="ISO effect"]')!;
+    expect(iso).not.toBeNull();
+    await act(async()=>{iso.value='1600';iso.dispatchEvent(new Event('change',{bubbles:true}));});
+    expect(host.querySelector('.viewfinder-readout')!.textContent).toContain('1600');
+    expect(host.querySelector('.viewfinder-readout')!.textContent).toContain('B&W');
+    expect(host.querySelector('.viewfinder-readout')!.textContent).toContain('5s');
     await act(async()=>button("Roll film").click());
-    expect(open).toHaveBeenLastCalledWith({seconds:5,preset:"B&W",flash:true});
+    expect(open).toHaveBeenLastCalledWith({seconds:5,preset:"B&W",flash:true,iso:1600});
     expect(host.querySelector('.instant-print')).toBeNull();
     expect(host.querySelector('img')!.alt).toContain('display photo');
     await act(async()=>button("Take a photo with this camera").click());
     expect(open).toHaveBeenCalledTimes(2);
-    expect(open).toHaveBeenLastCalledWith({seconds:5,preset:"B&W",flash:true});
+    expect(open).toHaveBeenLastCalledWith({seconds:5,preset:"B&W",flash:true,iso:1600});
   }finally{await act(async()=>root.unmount());host.remove();}
 });
 
