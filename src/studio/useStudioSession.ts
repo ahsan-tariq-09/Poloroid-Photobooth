@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { importAsset } from "../imports";
+import { captureDate } from "./captureDate";
 import {
   addDecoration,
   addText as addTextLayer,
@@ -197,7 +198,7 @@ export function useStudioSession() {
               const added = photoLayer(id, value.name, 0, value);
               resetSession(
                 { [id]: value },
-                { ...initialComposition(), caption: processed ? "Just now." : "", effects: {film: processed ? 0 : .65, copier: 0, seed: 76}, layers: [added] },
+                { ...initialComposition(), caption: processed ? captureDate(file.lastModified) : "", effects: {film: processed ? 0 : .65, copier: 0, seed: 76}, layers: [added] },
               );
             } else {
               const added = photoLayer(

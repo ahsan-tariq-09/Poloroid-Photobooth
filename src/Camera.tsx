@@ -6,6 +6,7 @@ import InstantPrint from "./studio/InstantPrint";
 import CameraSettings, { CameraReadout, type CameraISO, type TimerSeconds, type FilmPreset, type CameraPreferences } from "./studio/CameraSettings";
 import CameraPreview from "./studio/CameraPreview";
 import { applyCameraFilm } from "./studio/cameraFilm";
+import { captureDate } from "./studio/captureDate";
 import { playSound, unlockSound, stopSounds, FILM_LOAD_MS, SHUTTER_SOUND_MS } from "./sounds";
 
 export type CaptureDestination = "edit" | "finish" | "scrapbook";
@@ -86,6 +87,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
       const canvas=document.createElement("canvas");canvas.width=canvas.height=Math.min(v.videoWidth,v.videoHeight);
       const ctx=canvas.getContext("2d");
       if(!ctx){fail("That photo could not be captured. Try again.");return;}
+      const capturedAt=Date.now();
       try{
         if(facing==="user"){ctx.translate(canvas.width,0);ctx.scale(-1,1);}
         ctx.drawImage(v,(v.videoWidth-canvas.width)/2,(v.videoHeight-canvas.height)/2,canvas.width,canvas.height,0,0,canvas.width,canvas.height);
@@ -97,7 +99,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
       canvas.toBlob(blob=>{
         if(!alive.current||!captureRunning.current||generation.current!==token)return;
         if(!blob){fail("That photo could not be captured. Try again.");return;}
-        const url=URL.createObjectURL(blob);urls.current.push(url);results.push({file:new File([blob],`camera-photo-${results.length+1}.png`,{type:"image/png"}),url});
+        const url=URL.createObjectURL(blob);urls.current.push(url);results.push({file:new File([blob],`camera-photo-${results.length+1}.png`,{type:"image/png",lastModified:capturedAt}),url});
         if(results.length<shots){setShot(results.length+1);timer.current=setTimeout(()=>countdown(seconds),SHUTTER_SOUND_MS);}
         else {captureRunning.current=false;setPrints(results);setFilmLoaded(false);setShot(0);stop();setReady(false);}
       },"image/png");
@@ -111,11 +113,11 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
   };
   return <motion.div className="modal-backdrop camera-backdrop" initial={enabled?{opacity:0}:false} animate={{opacity:1}} exit={enabled?{opacity:0,transition:{duration:.15}}:undefined} transition={{duration:enabled?.25:0,ease:[.22,1,.36,1]}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
     <div ref={container} tabIndex={-1} className={`camera-modal camera-experience ${captured?"has-print":""}`} role="dialog" aria-modal="true" aria-labelledby="camera-title">
-      <div className="capture-heading"><div><h2 id="camera-title">{captured?"A moment, on paper.":"Take a photo"}</h2><p>{captured?(revealed?"Keep it simple, or make it your own.":"Shake the print to bring your photo into view."):"Roll the film, choose your settings, then click."}</p></div><button className="icon-button" aria-label="Close camera" onClick={onClose}><X size={20}/></button></div>
+      <div className="capture-heading"><div><h2 id="camera-title">{captured?"A moment, on paper.":"Take a photo"}</h2>{!captured&&<p>Roll the film, choose your settings, then click.</p>}</div><button className="icon-button" aria-label="Close camera" onClick={onClose}><X size={20}/></button></div>
       {!captured&&<div className="capture-mode segmented" aria-label="Camera mode"><button aria-pressed={shots===1} disabled={shot>0} onClick={()=>setShots(1)}>Single Polaroid</button><button aria-pressed={shots===4} disabled={shot>0} onClick={()=>setShots(4)}>4-shot strip</button></div>}
-      <InstantCamera printed={captured} print={captured?<InstantPrint photos={prints.map(p=>({src:p.url,alt:"Your captured photo"}))} caption={prints.length>1?"Four little moments":"Just now."} enabled={enabled} onReveal={()=>setRevealed(true)} onRetake={roll}/>:undefined}
+      <InstantCamera printed={captured} print={captured?<InstantPrint photos={prints.map(p=>({src:p.url,alt:"Your captured photo"}))} caption={captureDate(prints[0].file.lastModified)} enabled={enabled} onReveal={()=>setRevealed(true)} onRetake={roll}/>:undefined}
         settings={<CameraSettings seconds={seconds} onSeconds={setSeconds} preset={preset} onPreset={setPreset} flash={flash} onFlash={setFlash} iso={iso} onISO={setISO} disabled={shot>0}/>}
-        onRoll={roll} rollDisabled={loading||shot>0||(!ready&&!captured)} loading={loading} loaded={filmLoaded} onShutter={take} disabled={!ready||!filmLoaded||shot>0||captured} label="Capture" status={loading?"LOADING FILM":captured?"PRINT READY":shot?`SHOT ${shot} OF ${shots}`:ready?(filmLoaded?`READY · ${seconds?`TIMER ${seconds}s`:"TIMER OFF"}`:"ROLL TO LOAD FILM"):error?"CAMERA UNAVAILABLE":"CONNECTING CAMERA"} controls={!captured?<button className="camera-flip" aria-label="Flip camera" disabled={shot>0} onClick={()=>setFacing(f=>f==="user"?"environment":"user")}><RefreshCw size={18}/></button>:undefined}>
+        onRoll={roll} rollDisabled={loading||shot>0||(!ready&&!captured)} loading={loading} loaded={filmLoaded} onShutter={take} disabled={!ready||!filmLoaded||shot>0||captured} label="Capture" status={loading?"LOADING FILM":captured?"PRINT READY":shot?`SHOT ${shot} OF ${shots}`:ready?(filmLoaded?"READY":"ROLL TO LOAD FILM"):error?"CAMERA UNAVAILABLE":"CONNECTING CAMERA"} controls={!captured?<button className="camera-flip" aria-label="Flip camera" disabled={shot>0} onClick={()=>setFacing(f=>f==="user"?"environment":"user")}><RefreshCw size={18}/></button>:undefined}>
         <video ref={video} autoPlay playsInline muted style={{transform:facing==="user"?"scaleX(-1)":undefined}} onLoadedData={markReady} onPlaying={markReady}/>
         {ready&&!captured&&<CameraPreview video={video} preset={preset} iso={iso} flash={flash} mirrored={facing==="user"}/>}
         <CameraReadout seconds={seconds} preset={preset} iso={iso}/>
@@ -125,11 +127,9 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
       {captured&&<>
         {revealed&&<>
         <div className="capture-decisions"><button className="primary-button" onClick={()=>onCapture(prints.map(p=>p.file),prints.length>1?"scrapbook":"edit")}>Develop <ArrowRight size={17}/></button><button className="secondary-button" onClick={()=>onCapture(prints.map(p=>p.file),prints.length>1?"scrapbook":"finish")}><Check size={17}/> Done</button></div>
-        <p className="field-hint">{prints.length>1?"Arrange your shots in the photo-strip builder.":"Develop opens the editor. Done keeps the photo just as you took it."}</p>
         </>}
       </>}
       {enabled&&flashFrame>0&&<motion.div key={flashFrame} className="capture-flash" aria-hidden="true" initial={{opacity:.28}} animate={{opacity:0}} transition={{duration:.32}} onAnimationComplete={()=>setFlashFrame(0)}/>}
-      {!captured&&<p className="field-hint">ISO simulates exposure and grain. Flash adds a soft digital fill.</p>}
       {!captured&&error&&!ready&&<button className="secondary-button" onClick={()=>{if(stream.current&&!stream.current.getTracks().some(track=>track.readyState==="ended"))void playVideo();else setRestart(n=>n+1);}}>Retry camera</button>}
       {!captured&&<button className="text-button camera-upload" onClick={onUpload}><Upload size={15}/> Upload a photo instead</button>}
     </div>

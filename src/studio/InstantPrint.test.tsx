@@ -8,7 +8,7 @@ afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
 async function setup(enabled=false){const host=document.createElement("div"),root=createRoot(host),reveal=vi.fn();document.body.append(host);await act(async()=>root.render(<InstantPrint photos={[{src:"photo.png",alt:"Captured moment"}]} caption="Today" enabled={enabled} onReveal={reveal}/>));return {host,reveal,close:async()=>{await act(async()=>root.unmount());host.remove();}};}
 it("waits for the complete ten-second development before enabling the next action",async()=>{
   expect(PHOTO_DEVELOPMENT_MS).toBe(10000);
-  expect(PRINT_EJECTION_MS).toBe(4000);
+  expect(PRINT_EJECTION_MS).toBe(3000);
   vi.useFakeTimers();const s=await setup(true);
   try{
     expect(s.host.querySelector<HTMLButtonElement>('.shake-reveal')!.disabled).toBe(true);
@@ -18,7 +18,6 @@ it("waits for the complete ten-second development before enabling the next actio
     await act(async()=>vi.advanceTimersByTime(1));
     expect(s.host.querySelector<HTMLButtonElement>('.shake-reveal')!.disabled).toBe(false);
     await act(async()=>s.host.querySelector<HTMLButtonElement>('.shake-reveal')!.click());
-    await act(async()=>vi.advanceTimersByTime(650));
     expect(s.host.querySelector('img')).not.toBeNull();expect(s.reveal).not.toHaveBeenCalled();
     await act(async()=>vi.advanceTimersByTime(PHOTO_DEVELOPMENT_MS-1));
     expect(s.reveal).not.toHaveBeenCalled();expect(s.host.textContent).toContain("Developing…");
@@ -54,4 +53,16 @@ it("reveals after a deliberate side-to-side pointer gesture",async()=>{
   const s=await setup();const drag=s.host.querySelector(".print-drag")!;
   const send=async(type:string,x:number)=>{const e=new MouseEvent(type,{bubbles:true,clientX:x,button:0});Object.defineProperty(e,"pointerId",{value:1});await act(async()=>drag.dispatchEvent(e));};
   try{await send("pointerdown",100);await send("pointermove",150);await send("pointermove",90);expect(s.reveal).not.toHaveBeenCalled();await send("pointermove",150);expect(s.reveal).toHaveBeenCalledOnce();}finally{await s.close();}
+});
+
+it("starts fading immediately after a drag without an extra paper rotation",async()=>{
+  vi.useFakeTimers();const s=await setup(true),drag=s.host.querySelector('.print-drag')!;
+  const send=async(type:string,x:number)=>{const e=new MouseEvent(type,{bubbles:true,clientX:x,button:0});Object.defineProperty(e,'pointerId',{value:1});await act(async()=>drag.dispatchEvent(e));};
+  try{
+    await act(async()=>vi.advanceTimersByTime(PRINT_EJECTION_MS));
+    await send('pointerdown',100);await send('pointermove',150);await send('pointermove',90);await send('pointermove',150);
+    expect(s.host.querySelector('img')).not.toBeNull();
+    expect((s.host.querySelector('.instant-paper') as HTMLElement).style.transform).toBe('');
+    expect(s.reveal).not.toHaveBeenCalled();
+  }finally{await s.close();vi.useRealTimers();}
 });

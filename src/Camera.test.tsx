@@ -156,7 +156,7 @@ it.each([[8000,800],[3000,0]])("finishes a home-camera load started at %s after 
     if(remaining){await act(async()=>vi.advanceTimersByTimeAsync(remaining-1));expect(shutter.disabled).toBe(true);}
     await act(async()=>vi.advanceTimersByTimeAsync(remaining?1:0));
     expect(shutter.disabled).toBe(false);
-    expect(host.querySelector('.viewfinder-status')!.textContent).toBe("READY · TIMER OFF");
+    expect(host.querySelector('.viewfinder-status')!.textContent).toBe("READY");
   }finally{await act(async()=>root.unmount());vi.restoreAllMocks();vi.useRealTimers();host.remove();}
 });
 

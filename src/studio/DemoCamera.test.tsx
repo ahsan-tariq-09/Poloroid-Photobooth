@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import DemoCamera from "./DemoCamera";
+import { isoStops,timerStops } from "./CameraSettings";
 vi.mock("../sounds",()=>({playSound:vi.fn(),preloadSounds:vi.fn()}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 
@@ -47,5 +48,33 @@ it("disables the home controls while photos are opening",async()=>{
     expect(buttons.every(b=>b.disabled||b.closest('fieldset')?.disabled)).toBe(true);
     await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Roll film"]')!.click());
     expect(open).not.toHaveBeenCalled();
+  }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+it("takes the shortest turn at 600ms per step in either direction, including wraparound",async()=>{
+  const host=document.createElement("div"),root=createRoot(host);document.body.append(host);
+  try{
+    await act(async()=>root.render(<DemoCamera busy={false} onCamera={()=>{}}/>));
+    for(const {values,selector,label,target} of [
+      {values:isoStops,selector:'.iso-markings',label:(v:number)=>`ISO ${v}`,target:(i:number)=>-i*60},
+      {values:timerStops,selector:'.timer-rotor',label:(v:number)=>v?`Timer ${v} seconds`:'Timer off',target:(i:number)=>45-i*90},
+    ]){
+      const angle=()=>Number((host.querySelector(selector) as HTMLElement).style.transform.match(/[-\d.]+/)![0]);
+      for(const from of values)for(const to of values){
+        await act(async()=>host.querySelector<HTMLButtonElement>(`[aria-label="${label(from)}"]`)!.click());
+        const before=angle();
+        await act(async()=>host.querySelector<HTMLButtonElement>(`[aria-label="${label(to)}"]`)!.click());
+        expect(host.querySelector(`[aria-label="${label(to)}"]`)!.getAttribute('aria-pressed')).toBe('true');
+        const fromAngle=target((values as readonly number[]).indexOf(from)),toAngle=target((values as readonly number[]).indexOf(to));
+        expect((angle()%360+360)%360).toBeCloseTo((toAngle%360+360)%360);
+        const distance=Math.abs(toAngle-fromAngle);
+        expect(Math.abs(angle()-before)).toBe(Math.min(distance,360-distance));
+        if(from===to)expect(angle()).toBe(before);
+        else {
+          const dial=host.querySelector(selector)!.closest<HTMLElement>('.timer-dial,.iso-dial')!;
+          expect(parseFloat(dial.style.getPropertyValue('--dial-duration'))).toBe(600*Math.min(distance,360-distance)/(360/values.length));
+        }
+      }
+    }
   }finally{await act(async()=>root.unmount());host.remove();}
 });

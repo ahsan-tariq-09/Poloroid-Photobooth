@@ -1,6 +1,7 @@
 import { FRAME, PHOTO, clone, initialComposition, photoLayer, type Asset, type Assets, type Composition } from "./model";
 import { canvas, renderComposition } from "./render";
 import { importAsset, loadImage } from "./imports";
+import { captureDate } from "./studio/captureDate";
 
 export type StoredPhoto = { composition: Composition; assets: Record<string, {url:string; width:number; height:number; name:string; svg?:string}> };
 export type ScrapbookItem = {id:string; image:string; photo:StoredPhoto; x:number; y:number; width:number; rotation:number; tape:boolean};
@@ -41,7 +42,7 @@ export async function importMemories(files:File[],offset=0,processed=false):Prom
   const items:ScrapbookItem[]=[],errors:string[]=[];
   for(const file of files.slice(0,MAX_SCRAPBOOK_PHOTOS-offset)) {
     let asset:Asset|undefined;
-    try {asset=await importAsset(file);const composition=initialComposition("photo");composition.layers=[photoLayer("photo",asset.name,0,asset)];composition.effects.film=processed?0:.65;items.push(await makeMemory({photo:asset},composition,offset+items.length));}
+    try {asset=await importAsset(file);const composition=initialComposition("photo");composition.layers=[photoLayer("photo",asset.name,0,asset)];composition.effects.film=processed?0:.65;if(processed)composition.caption=captureDate(file.lastModified);items.push(await makeMemory({photo:asset},composition,offset+items.length));}
     catch(error){errors.push(`${file.name}: ${error instanceof Error?error.message:"Could not open photo."}`);}
     finally {if(asset?.url.startsWith("blob:"))URL.revokeObjectURL(asset.url);}
   }

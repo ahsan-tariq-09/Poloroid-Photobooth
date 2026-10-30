@@ -553,8 +553,8 @@ describe("existing editor regression", () => {
       value: { getUserMedia },
     });
 
-    if (!host.querySelector('[aria-label="Take a photo"]')) await click(".wordmark");
-    await click('[aria-label="Take a photo"]');
+    if (!host.querySelector('.camera-demo')) await click(".wordmark");
+    await click('.camera-demo [aria-label="Roll film"]');
 
     expect(getUserMedia).toHaveBeenCalledOnce();
 
@@ -564,8 +564,8 @@ describe("existing editor regression", () => {
 
     getUserMedia.mockRejectedValueOnce(new DOMException("Permission denied", "NotAllowedError"));
 
-    if (!host.querySelector('[aria-label="Take a photo"]')) await click(".wordmark");
-    await click('[aria-label="Take a photo"]');
+    if (!host.querySelector('.camera-demo')) await click(".wordmark");
+    await click('.camera-demo [aria-label="Roll film"]');
 
     expect(host.textContent).toContain("permission was declined");
 
@@ -779,15 +779,14 @@ describe("photo-first navigation and sessions", () => {
     Object.defineProperty(HTMLVideoElement.prototype,"videoWidth",{configurable:true,value:640});
     Object.defineProperty(HTMLVideoElement.prototype,"videoHeight",{configurable:true,value:480});
     URL.createObjectURL = vi.fn(()=>"blob:captured");
-    await button("Take a photo");
-    await act(async () =>
-      host
-        .querySelector("video")!
-        .dispatchEvent(new Event("loadeddata", { bubbles: true })),
-    );
     vi.useFakeTimers();
     try {
-      await act(async () => host.querySelector<HTMLButtonElement>('[role="dialog"] [aria-label="Roll film"]')!.click());
+      await act(async()=>host.querySelector<HTMLButtonElement>('.camera-demo [aria-label="Roll film"]')!.click());
+      await act(async () =>
+        host
+          .querySelector("video")!
+          .dispatchEvent(new Event("loadeddata", { bubbles: true })),
+      );
       const capture = host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!;
       expect(capture.disabled).toBe(true);
       await act(async () => vi.advanceTimersByTimeAsync(2800));
@@ -797,6 +796,9 @@ describe("photo-first navigation and sessions", () => {
       await act(async () => vi.advanceTimersByTimeAsync(3000));
       expect(window.location.pathname).toBe("/");
       expect(host.querySelector(".capture-decisions")).toBeNull();
+      const capturedCaption=host.querySelector('.instant-caption')!.textContent;
+      expect(capturedCaption).toBe(new Date().toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}));
+      vi.setSystemTime(Date.now()+86400000);
       await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Shake to reveal"]')!.click());
       await act(async()=>vi.advanceTimersByTimeAsync(650));
       expect(host.textContent).toContain("Done");
@@ -812,7 +814,7 @@ describe("photo-first navigation and sessions", () => {
         await click('a[href="/edit"]');
       }
       expect(comp().layers[0].name).toBe("camera-photo.png");
-      expect(comp()).toMatchObject({caption:"Just now.",captionFont:"caveat",captionSize:32});
+      expect(comp()).toMatchObject({caption:capturedCaption,captionFont:"caveat",captionSize:32});
       expect(stop).toHaveBeenCalled();
     } finally {
       vi.useRealTimers();

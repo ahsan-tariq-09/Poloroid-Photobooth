@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Camera, Upload, ArrowRight, BookOpen } from "lucide-react";
+import { Upload, ArrowRight, BookOpen } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { examples, loadSample, type ExampleDefinition } from "./examples";
 import type { Assets } from "../model";
@@ -24,12 +24,11 @@ export default function StartScreen({busy, hasSession, onUpload, onCamera, onExa
       <div className="intro-copy">
         <h1 tabIndex={-1}>Keep a little <em>of the moment.</em></h1>
       </div>
-      <div className="start-actions">
-          <button className="primary-button" aria-label="Take a photo" disabled={busy} onClick={()=>onCamera()}><Camera size={19}/> Take a photo</button>
-          <button className="text-button upload-secondary" disabled={busy} onClick={onUpload}><Upload size={17}/>{busy ? "Opening photos…" : "Upload photos"}</button>
-        </div>
       <DemoCamera busy={busy} onCamera={onCamera}/>
       <div className="camera-start">
+        <div className="start-actions">
+          <button className="text-button upload-secondary" disabled={busy} onClick={onUpload}><Upload size={17}/>{busy ? "Opening photos…" : "Upload photos"}</button>
+        </div>
         <p className="import-hint">Or drop photos here. JPG, PNG, HEIC and SVG.</p>
         <p className="local-note">Made on your device. Your photos stay yours.</p>
         {hasSession && <Link className="resume-link" to="/edit">Continue your Polaroid <ArrowRight size={16}/></Link>}
