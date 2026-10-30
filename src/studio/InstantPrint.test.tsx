@@ -62,7 +62,7 @@ it("starts fading immediately after a drag without an extra paper rotation",asyn
     await act(async()=>vi.advanceTimersByTime(PRINT_EJECTION_MS));
     await send('pointerdown',100);await send('pointermove',150);await send('pointermove',90);await send('pointermove',150);
     expect(s.host.querySelector('img')).not.toBeNull();
-    expect((s.host.querySelector('.instant-paper') as HTMLElement).style.transform).toBe('');
+    expect((s.host.querySelector('.print-drag') as HTMLElement).style.transform).not.toContain('rotate');
     expect(s.reveal).not.toHaveBeenCalled();
   }finally{await s.close();vi.useRealTimers();}
 });

@@ -277,10 +277,7 @@ function StudioApp() {
               onClose={() => setCamera(false)}
               onCapture={(files, destination) => {
                 setCamera(false);
-                if (destination === "scrapbook") {
-                  const startedAt = navigationKey.current;
-                  void book.addFiles(files, files.length > 1 ? "strip" : undefined, true).then(success=>{if(success && navigationKey.current === startedAt)navigate("/scrapbook");});
-                } else importFiles(files, intent.current, destination === "finish" ? "/finish" : "/edit", true);
+                importFiles(files, intent.current, destination === "finish" ? "/finish" : "/edit", true);
               }}
               onUpload={() => {
                 setCamera(false);

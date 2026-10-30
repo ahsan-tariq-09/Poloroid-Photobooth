@@ -7,9 +7,9 @@ import CameraSettings, { CameraReadout, type CameraISO, type TimerSeconds, type 
 import CameraPreview from "./studio/CameraPreview";
 import { applyCameraFilm } from "./studio/cameraFilm";
 import { captureDate } from "./studio/captureDate";
-import { playSound, unlockSound, stopSounds, FILM_LOAD_MS, SHUTTER_SOUND_MS } from "./sounds";
+import { playSound, unlockSound, stopSounds, FILM_LOAD_MS } from "./sounds";
 
-export type CaptureDestination = "edit" | "finish" | "scrapbook";
+export type CaptureDestination = "edit" | "finish";
 export default function Camera({onClose, onCapture, onUpload, enabled, initialSettings}: {
   onClose: () => void; onCapture: (files: File[], destination: CaptureDestination) => void;
   onUpload: () => void; enabled: boolean;
@@ -19,7 +19,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
   const container=useRef<HTMLDivElement>(null), alive=useRef(true), timer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const captureRunning=useRef(false), generation=useRef(0), urls=useRef<string[]>([]);
   const [error,setError]=useState(""), [ready,setReady]=useState(false), [count,setCount]=useState<number|null>(null);
-  const [facing,setFacing]=useState<"user"|"environment">("user"), [shots,setShots]=useState(1), [shot,setShot]=useState(0);
+  const [facing,setFacing]=useState<"user"|"environment">("user"), [shot,setShot]=useState(0);
   const [prints,setPrints]=useState<{file:File;url:string}[]>([]), [revealed,setRevealed]=useState(false), [restart,setRestart]=useState(0);
   const [seconds,setSeconds]=useState<TimerSeconds>(initialSettings?.seconds ?? 3), [preset,setPreset]=useState<FilmPreset>(initialSettings?.preset ?? "Classic"), [flash,setFlash]=useState(initialSettings?.flash ?? false), [flashFrame,setFlashFrame]=useState(0);
   const [iso,setISO]=useState<CameraISO>(initialSettings?.iso ?? 800);
@@ -100,8 +100,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
         if(!alive.current||!captureRunning.current||generation.current!==token)return;
         if(!blob){fail("That photo could not be captured. Try again.");return;}
         const url=URL.createObjectURL(blob);urls.current.push(url);results.push({file:new File([blob],`camera-photo-${results.length+1}.png`,{type:"image/png",lastModified:capturedAt}),url});
-        if(results.length<shots){setShot(results.length+1);timer.current=setTimeout(()=>countdown(seconds),SHUTTER_SOUND_MS);}
-        else {captureRunning.current=false;setPrints(results);setFilmLoaded(false);setShot(0);stop();setReady(false);}
+        captureRunning.current=false;setPrints(results);setFilmLoaded(false);setShot(0);stop();setReady(false);
       },"image/png");
     };
     const countdown=(n:number)=>{
@@ -114,10 +113,9 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
   return <motion.div className="modal-backdrop camera-backdrop" initial={enabled?{opacity:0}:false} animate={{opacity:1}} exit={enabled?{opacity:0,transition:{duration:.15}}:undefined} transition={{duration:enabled?.25:0,ease:[.22,1,.36,1]}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
     <div ref={container} tabIndex={-1} className={`camera-modal camera-experience ${captured?"has-print":""}`} role="dialog" aria-modal="true" aria-labelledby="camera-title">
       <div className="capture-heading"><div><h2 id="camera-title">{captured?"A moment, on paper.":"Take a photo"}</h2>{!captured&&<p>Roll the film, choose your settings, then click.</p>}</div><button className="icon-button" aria-label="Close camera" onClick={onClose}><X size={20}/></button></div>
-      {!captured&&<div className="capture-mode segmented" aria-label="Camera mode"><button aria-pressed={shots===1} disabled={shot>0} onClick={()=>setShots(1)}>Single Polaroid</button><button aria-pressed={shots===4} disabled={shot>0} onClick={()=>setShots(4)}>4-shot strip</button></div>}
       <InstantCamera printed={captured} print={captured?<InstantPrint photos={prints.map(p=>({src:p.url,alt:"Your captured photo"}))} caption={captureDate(prints[0].file.lastModified)} enabled={enabled} onReveal={()=>setRevealed(true)} onRetake={roll}/>:undefined}
         settings={<CameraSettings seconds={seconds} onSeconds={setSeconds} preset={preset} onPreset={setPreset} flash={flash} onFlash={setFlash} iso={iso} onISO={setISO} disabled={shot>0}/>}
-        onRoll={roll} rollDisabled={loading||shot>0||(!ready&&!captured)} loading={loading} loaded={filmLoaded} onShutter={take} disabled={!ready||!filmLoaded||shot>0||captured} label="Capture" status={loading?"LOADING FILM":captured?"PRINT READY":shot?`SHOT ${shot} OF ${shots}`:ready?(filmLoaded?"READY":"ROLL TO LOAD FILM"):error?"CAMERA UNAVAILABLE":"CONNECTING CAMERA"} controls={!captured?<button className="camera-flip" aria-label="Flip camera" disabled={shot>0} onClick={()=>setFacing(f=>f==="user"?"environment":"user")}><RefreshCw size={18}/></button>:undefined}>
+        onRoll={roll} rollDisabled={loading||shot>0||(!ready&&!captured)} loading={loading} loaded={filmLoaded} onShutter={take} disabled={!ready||!filmLoaded||shot>0||captured} label="Capture" status={loading?"LOADING FILM":captured?"PRINT READY":shot?"TAKING PHOTO":ready?(filmLoaded?"READY":"ROLL TO LOAD FILM"):error?"CAMERA UNAVAILABLE":"CONNECTING CAMERA"} controls={!captured?<button className="camera-flip" aria-label="Flip camera" disabled={shot>0} onClick={()=>setFacing(f=>f==="user"?"environment":"user")}><RefreshCw size={18}/></button>:undefined}>
         <video ref={video} autoPlay playsInline muted style={{transform:facing==="user"?"scaleX(-1)":undefined}} onLoadedData={markReady} onPlaying={markReady}/>
         {ready&&!captured&&<CameraPreview video={video} preset={preset} iso={iso} flash={flash} mirrored={facing==="user"}/>}
         <CameraReadout seconds={seconds} preset={preset} iso={iso}/>
@@ -126,7 +124,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
       </InstantCamera>
       {captured&&<>
         {revealed&&<>
-        <div className="capture-decisions"><button className="primary-button" onClick={()=>onCapture(prints.map(p=>p.file),prints.length>1?"scrapbook":"edit")}>Develop <ArrowRight size={17}/></button><button className="secondary-button" onClick={()=>onCapture(prints.map(p=>p.file),prints.length>1?"scrapbook":"finish")}><Check size={17}/> Done</button></div>
+        <div className="capture-decisions"><button className="primary-button" onClick={()=>onCapture(prints.map(p=>p.file),"edit")}>Develop <ArrowRight size={17}/></button><button className="secondary-button" onClick={()=>onCapture(prints.map(p=>p.file),"finish")}><Check size={17}/> Done</button></div>
         </>}
       </>}
       {enabled&&flashFrame>0&&<motion.div key={flashFrame} className="capture-flash" aria-hidden="true" initial={{opacity:.28}} animate={{opacity:0}} transition={{duration:.32}} onAnimationComplete={()=>setFlashFrame(0)}/>}

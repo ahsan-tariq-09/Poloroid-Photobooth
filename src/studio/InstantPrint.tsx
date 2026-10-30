@@ -14,6 +14,7 @@ export default function InstantPrint({ photos, caption, enabled, onReveal, onRet
   const [phase,setPhase]=useState<"ejecting"|"blank"|"developing"|"revealed">(enabled?"ejecting":"blank");
   const motionApi=window.isSecureContext?window.DeviceMotionEvent as MotionAccess|undefined:undefined;
   const [sensorActive,setSensorActive]=useState(false);
+  const [buttonShake,setButtonShake]=useState(false);
   const revealStarted=useRef(false), revealCallback=useRef(onReveal);
   const offset=useMotionValue(0);
   const gesture=useRef<{id:number;anchor:number;direction:number;turns:number;distance:number}|null>(null);
@@ -55,6 +56,7 @@ export default function InstantPrint({ photos, caption, enabled, onReveal, onRet
     if(motionApi?.requestPermission&&!sensorActive){
       try{void motionApi.requestPermission().catch(()=>{});}catch{/* The tap fallback still works. */}
     }
+    if(phase==="blank"&&!revealStarted.current)setButtonShake(enabled);
     reveal();
   };
   const move=(event:PointerEvent<HTMLDivElement>)=>{
@@ -71,7 +73,7 @@ export default function InstantPrint({ photos, caption, enabled, onReveal, onRet
   const end=()=>{gesture.current=null;offset.set(0);};
   return <div className="print-reveal">
     <div className="print-outlet"><motion.div className="instant-print" initial={enabled?{y:"-100%"}:false} animate={{y:0}} transition={{duration:enabled?PRINT_EJECTION_MS/1000:0,ease:"linear"}}>
-      <motion.div className="print-drag" style={{x:offset}} onPointerDown={event=>{
+      <motion.div className="print-drag" style={{x:offset}} animate={{rotate:enabled&&buttonShake&&phase==="developing"?[0,-4,4,-3,3,-1,0]:0}} transition={{duration:enabled&&buttonShake ? .65 : 0,ease:"easeInOut"}} onPointerDown={event=>{
         if(phase!=="blank"||event.button!==0)return;
         gesture.current={id:event.pointerId,anchor:event.clientX,direction:0,turns:0,distance:0};
         event.currentTarget.setPointerCapture?.(event.pointerId);

@@ -160,7 +160,7 @@ it.each([[8000,800],[3000,0]])("finishes a home-camera load started at %s after 
   }finally{await act(async()=>root.unmount());vi.restoreAllMocks();vi.useRealTimers();host.remove();}
 });
 
-it.each([[640,480,80,0],[480,640,0,80]])("crops %s×%s video without stretching, captures four frames and hands the strip to the builder", async (width,height,sourceX,sourceY) => {
+it.each([[640,480,80,0],[480,640,0,80]])("crops %s×%s video without stretching, captures one Polaroid and opens Finish", async (width,height,sourceX,sourceY) => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   const stop=vi.fn(), capture=vi.fn(), host=document.createElement("div"), root=createRoot(host);
   document.body.append(host);
@@ -174,23 +174,23 @@ it.each([[640,480,80,0],[480,640,0,80]])("crops %s×%s video without stretching,
   try {
     await act(async()=>root.render(<Camera enabled={false} onClose={()=>{}} onUpload={()=>{}} onCapture={capture}/>));
     await act(async()=>host.querySelector("video")!.dispatchEvent(new Event("loadeddata",{bubbles:true})));
-    await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="4-shot strip")!.click());
+    expect([...host.querySelectorAll("button")].some(b=>b.textContent==="4-shot strip")).toBe(false);
     vi.useFakeTimers();await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Roll film"]')!.click());
     await act(async()=>vi.advanceTimersByTimeAsync(2800));
     await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!.click());
     await act(async()=>vi.advanceTimersByTimeAsync(12000+3*2490));
-    expect(toBlob).toHaveBeenCalledTimes(4); expect(stop).toHaveBeenCalled();
+    expect(toBlob).toHaveBeenCalledTimes(1); expect(stop).toHaveBeenCalled();
     // Both orientations crop a square source, rather than distorting the full frame.
     expect(draw).toHaveBeenCalledWith(host.querySelector("video"),sourceX,sourceY,480,480,0,0,480,480);
     expect(translate).toHaveBeenCalledWith(480,0);
     expect(host.querySelectorAll('img[alt="Your captured photo"]')).toHaveLength(0);
     expect(host.querySelector(".capture-decisions")).toBeNull();
     await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Shake to reveal"]')!.click());
-    expect(host.querySelectorAll('img[alt="Your captured photo"]')).toHaveLength(4);
+    expect(host.querySelectorAll('img[alt="Your captured photo"]')).toHaveLength(1);
     expect(capture).not.toHaveBeenCalled();
     await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent?.trim()==="Done")!.click());
-    expect(capture.mock.calls[0][0].map((f:File)=>f.name)).toEqual(["camera-photo-1.png","camera-photo-2.png","camera-photo-3.png","camera-photo-4.png"]);
-    expect(capture.mock.calls[0][1]).toBe("scrapbook");
+    expect(capture.mock.calls[0][0].map((f:File)=>f.name)).toEqual(["camera-photo-1.png"]);
+    expect(capture.mock.calls[0][1]).toBe("finish");
     const retake=[...host.querySelectorAll("button")].find(b=>b.textContent==="Retake photo")!;
     retake.focus();
     await act(async()=>retake.click());
@@ -219,7 +219,7 @@ it.each(["dimensions", "blob"])("allows a new attempt after a %s capture failure
   } finally {vi.useRealTimers();await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();}
 });
 
-it.each([0,3,5,10])("uses the %s-second dial setting for each frame of a strip",async seconds=>{
+it.each([0,3,5,10])("uses the %s-second dial setting and captures only one Polaroid",async seconds=>{
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
   const host=document.createElement("div"),root=createRoot(host);document.body.append(host);
   Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia:vi.fn().mockResolvedValue({getTracks:()=>[{stop:vi.fn()}]})}});
@@ -230,13 +230,13 @@ it.each([0,3,5,10])("uses the %s-second dial setting for each frame of a strip",
   try{
     await act(async()=>root.render(<Camera enabled={seconds===3} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));await act(async()=>host.querySelector("video")!.dispatchEvent(new Event("loadeddata",{bubbles:true})));
     expect(button("Timer 3 seconds").getAttribute("aria-pressed")).toBe("true");expect(button("Capture").disabled).toBe(true);
-    vi.useFakeTimers();await act(async()=>{button(seconds?`Timer ${seconds} seconds`:"Timer off").click();button("B&W").click();button("Flash effect").click();button("4-shot strip").click();button("Roll film").click();});
+    vi.useFakeTimers();await act(async()=>{button(seconds?`Timer ${seconds} seconds`:"Timer off").click();button("B&W").click();button("Flash effect").click();button("Roll film").click();});
     await act(async()=>vi.advanceTimersByTimeAsync(2800));await act(async()=>button("Capture").click());
     if(seconds===3)await act(async()=>root.render(<Camera enabled={false} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));
     if(seconds){await act(async()=>vi.advanceTimersByTimeAsync(seconds*1000-1));expect(blob).not.toHaveBeenCalled();expect(button("Timer off").closest("fieldset")!.disabled).toBe(true);await act(async()=>vi.advanceTimersByTimeAsync(1));}
     expect(blob).toHaveBeenCalledTimes(1);
     await act(async()=>vi.advanceTimersByTimeAsync(2489));expect(blob).toHaveBeenCalledTimes(1);
-    await act(async()=>vi.advanceTimersByTimeAsync(3*(seconds*1000+2490)-2489));expect(blob).toHaveBeenCalledTimes(4);expect(write).toHaveBeenCalledTimes(4);
+    await act(async()=>vi.advanceTimersByTimeAsync(3*(seconds*1000+2490)-2489));expect(blob).toHaveBeenCalledTimes(1);expect(write).toHaveBeenCalledTimes(1);
     const pixels=write.mock.calls[0][0].data;expect(pixels[0]).toBe(pixels[1]);expect(pixels[1]).toBe(pixels[2]);expect(host.querySelector(".capture-flash")).toBeNull();expect(host.querySelector(".capture-decisions")).toBeNull();
     if(seconds===0||seconds===3){await act(async()=>root.render(<Camera enabled={true} onClose={()=>{}} onUpload={()=>{}} onCapture={()=>{}}/>));expect(host.querySelector(".capture-flash")).toBeNull();}
   }finally{vi.useRealTimers();await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();}
