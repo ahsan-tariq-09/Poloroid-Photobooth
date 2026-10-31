@@ -121,4 +121,4 @@ Supplied models:
 - [Magnetic Photo Frame (Polaroid/Instax style)](https://www.printables.com/model/149884-magnetic-photo-frame-polaroidinstax-style/files): `frame-polaroid-part1.stl`, `frame-polaroid-part2.stl`.
 - [Polaroid frame](https://www.printables.com/model/155872-polaroid-frame/files): `polaroid frame.stl`.
 
-The existing GPL-3.0 repository license is preserved. Supplied third-party references and STL models retain their original rights; consult their source listings. Dependency license notices accompany their packages. See [HEIC encoder sources and notices](ENCODER-NOTICES.md) for encoder attribution.
+Supplied third-party references and STL models retain their original rights; consult their source listings. Dependency license notices accompany their packages. See [HEIC encoder sources and notices](ENCODER-NOTICES.md) for encoder attribution.
