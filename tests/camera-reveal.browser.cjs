@@ -15,6 +15,9 @@ fs.mkdirSync(output, {recursive:true});
     for (const width of (process.argv[5]==='extra'?[390]:[1280,390,320])) {
       const context = await browser.newContext({viewport:{width,height:900},reducedMotion:'no-preference'});
       await context.addInitScript((engine)=>{
+        const addListener=window.addEventListener.bind(window),removeListener=window.removeEventListener.bind(window);
+        window.addEventListener=(type,...args)=>{if(type==='devicemotion')window.motionListenerReady=true;return addListener(type,...args);};
+        window.removeEventListener=(type,...args)=>{if(type==='devicemotion')window.motionListenerReady=false;return removeListener(type,...args);};
         if(!navigator.mediaDevices)Object.defineProperty(navigator,'mediaDevices',{value:{}});
         Object.defineProperty(navigator.mediaDevices,'getUserMedia',{value:async()=>{
           const canvas=document.createElement('canvas');canvas.width=640;canvas.height=480;
@@ -35,6 +38,7 @@ fs.mkdirSync(output, {recursive:true});
       },engine);
       const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
       await page.goto('http://127.0.0.1:5174/');
+      await page.screenshot({path:path.join(output,`${engine}-${width}-home.png`),fullPage:true});
       await page.getByRole('button',{name:'Timer off',exact:true}).click();
       await page.getByRole('button',{name:'Roll film',exact:true}).click();
       assert.equal(await page.getByRole('button',{name:'4-shot strip',exact:true}).count(),0);
@@ -63,6 +67,49 @@ fs.mkdirSync(output, {recursive:true});
       await page.getByRole('link',{name:'Back to editing'}).click();await page.waitForURL('**/edit');
       assert.deepEqual(errors,[]);
       if(width===390){
+        for(const method of ['pointer','sensor']){
+          await page.goto('http://127.0.0.1:5174/');
+          await page.evaluate(()=>{if(!window.DeviceMotionEvent)window.DeviceMotionEvent=Event;});
+          await page.getByRole('button',{name:'Timer off',exact:true}).click();
+          await page.getByRole('button',{name:'Roll film',exact:true}).click();
+          await page.getByRole('button',{name:'Capture',exact:true}).click();
+          await page.waitForFunction(()=>{const button=document.querySelector('.shake-reveal');return button&&!button.disabled;});
+          if(method==='pointer'){
+            const box=await page.locator('.print-drag').boundingBox();
+            const x=box.x+box.width/2,y=box.y+box.height/2;
+            await page.mouse.move(x,y);await page.mouse.down();
+            for(const delta of [55,-55,55])await page.mouse.move(x+delta,y,{steps:5});
+            await page.mouse.up();
+          }else{
+            await page.waitForFunction(()=>window.motionListenerReady&&!document.hidden);
+            await page.evaluate(()=>{
+              for(let i=0;i<5;i++){
+                const event=new Event('devicemotion');
+                Object.defineProperties(event,{acceleration:{value:{x:i%2?-25:25,y:0,z:0}},timeStamp:{value:100+i*220}});
+                window.dispatchEvent(event);
+              }
+            });
+          }
+          await page.locator('.instant-photo-window img').waitFor();
+          const rotations=await page.evaluate(async()=>{
+            const samples=[];
+            for(let i=0;i<45;i++){
+              await new Promise(resolve=>requestAnimationFrame(resolve));
+              const m=new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.print-drag')).transform);
+              samples.push(Math.atan2(m.b,m.a));
+            }
+            return samples;
+          });
+          assert(rotations.every(angle=>Math.abs(angle)<0.001),`${method} added a shake`);
+          await page.evaluate(()=>{
+            Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});
+            document.dispatchEvent(new Event('visibilitychange'));
+          });
+          await page.getByRole('button',{name:'Photo revealed',exact:true}).waitFor();
+          assert.equal(await page.locator('.print-drag').evaluate(e=>getComputedStyle(e).transform),'none');
+          await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));});
+          console.log(JSON.stringify({engine,method,noExtraShake:true,hiddenPageSettles:true}));
+        }
         await page.emulateMedia({reducedMotion:'reduce'});await page.goto('http://127.0.0.1:5174/');
         await page.getByRole('button',{name:'Timer off',exact:true}).click();await page.getByRole('button',{name:'Roll film',exact:true}).click();await page.getByRole('button',{name:'Capture',exact:true}).click();
         await page.getByRole('button',{name:'Shake to reveal',exact:true}).focus();await page.keyboard.press('Enter');
@@ -71,6 +118,7 @@ fs.mkdirSync(output, {recursive:true});
         await page.getByRole('button',{name:'Develop',exact:true}).click();await page.waitForURL('**/edit');
         console.log(JSON.stringify({engine,reducedMotion:true,keyboardReveal:true,develop:true}));
       }
+      assert.deepEqual(errors,[]);
       console.log(JSON.stringify({engine,width,shakeSamples:transforms.length,layout,finish:true,edit:true,errors}));
       await context.close();
     }

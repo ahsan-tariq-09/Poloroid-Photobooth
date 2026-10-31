@@ -31,6 +31,26 @@ describe("self-contained SVG import", () => {
     );
     expect(svg).not.toMatch(/script|onclick|foreignObject|animate/);
   });
+  it.each([
+    '&lt;script&gt;alert(1)&lt;/script&gt;',
+    '<![CDATA[<script>alert(1)</script>]]>',
+  ])("keeps encoded markup as text after sanitizing and reparsing: %s", (text) => {
+    const { svg } = sanitizeSvg(`${start}<text>${text}</text></svg>`);
+    const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+    expect(doc.querySelector("parsererror, script")).toBeNull();
+    expect(doc.querySelector("text")?.textContent).toBe("<script>alert(1)</script>");
+  });
+  it.each(["href", "xlink:href"])("sanitizes DOM-derived nested SVG through %s", (attribute) => {
+    const nested = btoa(`${start}<script>alert(1)</script><g onload="alert(1)"><rect width="20" height="20"/></g></svg>`);
+    const input = `${start}<image xmlns:xlink="http://www.w3.org/1999/xlink" ${attribute}="data:image/svg+xml;base64,${nested}"/></svg>`;
+    const { svg } = sanitizeSvg(input);
+    const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+    const data = doc.querySelector("image")!.getAttribute(attribute)!;
+    const clean = new DOMParser().parseFromString(atob(data.split(",")[1]), "image/svg+xml");
+    expect(clean.querySelector("parsererror, script, [onload]")).toBeNull();
+    expect(clean.querySelector("rect")?.getAttribute("width")).toBe("20");
+    expect(clean.documentElement.getAttribute("viewBox")).toBe("0 0 200 100");
+  });
   it("accepts embedded vector exports while sanitizing nested artwork", () => {
     const nested = btoa(
       start +

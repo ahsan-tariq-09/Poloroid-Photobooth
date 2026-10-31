@@ -92,13 +92,10 @@
 .instant-print { width:100%; margin:0 auto; }
 .print-drag { touch-action:pan-y; cursor:grab; }
 .instant-paper { display:flex; flex-direction:column; aspect-ratio:88 / 107; background:#fff9e9; padding:6% 6% 0; box-shadow:0 10px 20px #30271930; }
-.instant-paper.instant-strip { aspect-ratio:auto; padding-bottom:8%; }
 .instant-photo-window { aspect-ratio:1; flex-shrink:0; width:100%; background:#25312b; overflow:hidden; }
 .instant-photo-window img { display:block; width:100%; height:100%; object-fit:cover; user-select:none; }
-.instant-strip .instant-photo-window + .instant-photo-window { margin-top:4%; }
 .undeveloped-photo { width:100%; height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; background:linear-gradient(130deg,#4c584a,#263b32); color:#f7f0d9; font-size:clamp(12px,2vw,18px); }
 .instant-caption { display:grid; flex:1; place-items:center; min-height:0; overflow-wrap:anywhere; text-align:center; padding:8px 0; color:#554732; font:500 clamp(19px,2vw,27px)/1.25 "Caveat",cursive; }
-.instant-strip .instant-caption { margin-top:5%; }
 .print-reveal-actions { text-align:center; margin:4px 0 16px; }
 .print-action-row { display:flex; justify-content:center; align-items:stretch; gap:10px; margin:0 auto; max-width:440px; }
 .print-action-row > button { min-height:52px; padding:12px 18px; }

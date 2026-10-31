@@ -78,7 +78,7 @@ export default function InstantPrint({ photos, caption, enabled, onReveal, onRet
         gesture.current={id:event.pointerId,anchor:event.clientX,direction:0,turns:0,distance:0};
         event.currentTarget.setPointerCapture?.(event.pointerId);
       }} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end}>
-        <div className={`instant-paper ${photos.length>1?"instant-strip":""}`}>
+        <div className="instant-paper">
           {photos.map((photo,index)=><div className="instant-photo-window" key={photo.src}>
             {phase==="developing"||phase==="revealed" ? <motion.img src={photo.src} alt={photo.alt} initial={enabled?{opacity:0}:false} animate={{opacity:1}} transition={{duration:enabled?PHOTO_DEVELOPMENT_MS/1000:0,ease:"linear"}} draggable={false}/> : <div className="undeveloped-photo" aria-label={`Unrevealed photo ${index+1}`}>{index===0&&<><Hand size={25} strokeWidth={1.4}/><span>Shake to reveal</span></>}</div>}
           </div>)}
