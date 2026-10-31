@@ -1,0 +1,112 @@
+.app-shell.camera-page { max-width:none; padding:0; background:#252622 url('/textures/leather.webp') repeat; background-size:340px; color:#f5f1e5; }
+.mobile-camera { min-height:100dvh; color-scheme:dark; }
+.mobile-camera-body:focus { outline:none; }
+.mobile-camera .camera-assembly { --camera-pad:max(14px,env(safe-area-inset-left),env(safe-area-inset-right)); --slot-overlap:18px; --mobile-print-width:min(360px,calc(100vw - 42px),calc((100dvh - 270px) * .82)); }
+.mobile-camera .instant-camera { min-height:100dvh; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(130px,1fr) auto auto auto; gap:12px; padding:max(12px,env(safe-area-inset-top)) var(--camera-pad) max(12px,env(safe-area-inset-bottom)); border-radius:0; }
+.mobile-camera .camera-nameplate { padding:0; }
+.mobile-camera .camera-nameplate > span:first-child { font-size:22px; letter-spacing:-.02em; }
+.mobile-camera nav { display:flex; gap:4px; }
+.mobile-camera nav :is(a,button) { display:grid; place-items:center; width:44px; height:44px; padding:0; border:1px solid #707267; border-radius:4px; color:#f5f1e5; background:#141713; }
+.mobile-camera :is(button,a):focus-visible { outline:3px solid #d9edb6; outline-offset:3px; }
+.mobile-camera .viewfinder-bezel { width:min(100%,calc(100dvh - 426px)); min-width:150px; justify-self:center; align-self:center; }
+.mobile-camera .camera-display { aspect-ratio:1; }
+.mobile-camera .camera-message { padding:40px 12px 30px; font-size:12px; }
+.mobile-camera .camera-settings { width:min(100%,440px); justify-self:center; margin:0; grid-template-columns:minmax(96px,1fr) 152px 48px; grid-template-areas:"film film film" "timer iso flash"; gap:10px 8px; }
+.mobile-camera .camera-dials { display:contents; }
+.mobile-camera .timer-control { grid-area:timer; }
+.mobile-camera .iso-control { grid-area:iso; }
+.mobile-camera .film-presets { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; align-self:auto; padding:5px!important; }
+.mobile-camera .film-presets legend { margin-bottom:0; font-size:11px; }
+.mobile-camera .film-presets button { flex-direction:column; justify-content:center; gap:4px; min-height:52px; padding:4px 0; font-size:11px; }
+.mobile-camera .film-presets button span { white-space:nowrap; }
+.mobile-camera .flash-control { display:block; }
+.mobile-camera .flash-control > span:first-child { display:block; width:100%; margin-bottom:10px; }
+.mobile-camera .iso-dial { --iso-radius:54px; width:152px; height:152px; }
+.mobile-camera .iso-stop { width:44px; height:44px; min-height:44px; margin:-22px 0 0 -22px; }
+.mobile-camera .iso-knob { width:44px; height:44px; min-height:44px; top:calc(50% - 22px); left:calc(50% - 22px); }
+.mobile-camera .iso-stop:focus-visible { outline-offset:-3px; }
+.mobile-camera .camera-hardware { width:min(100%,440px); justify-self:center; padding:0; }
+.mobile-camera .camera-hardware-copy > span:last-child { min-height:0; }
+.mobile-camera .shutter-control { align-self:center; }
+.mobile-camera .ejection-slot { width:100%; max-width:440px; margin:0; justify-self:center; }
+.mobile-camera.has-print .instant-camera { min-height:0; grid-template-rows:auto auto auto; }
+.mobile-camera.has-print .ejection-slot { width:var(--mobile-print-width); }
+.mobile-camera .print-reveal { padding-top:0; }
+.mobile-camera .print-outlet { padding:0 16px 16px; }
+.mobile-camera .instant-print { width:var(--mobile-print-width); max-width:100%; }
+.mobile-camera .print-reveal-actions { margin:0 14px 12px; }
+.mobile-camera .secondary-button { color:#292c26; background:#faf6ec; }
+.mobile-camera .capture-decisions { width:min(calc(100% - 28px),440px); margin:0 auto; padding-bottom:max(14px,env(safe-area-inset-bottom)); }
+.mobile-camera .capture-decisions button { min-height:48px; }
+.camera-page > .error-banner,.camera-notice { position:fixed; top:68px; left:16px; right:16px; z-index:10; margin:0; }
+.camera-page > .modal-backdrop { color:#292c26; }
+@media(max-width:370px) {
+  .mobile-camera .camera-assembly { --camera-pad:8px; }
+  .mobile-camera .camera-settings { grid-template-columns:96px 152px 44px; column-gap:4px; }
+  .mobile-camera .camera-nameplate { gap:6px; }
+  .mobile-camera .camera-nameplate > span:first-child { font-size:20px; padding-inline:10px; }
+}
+/* Short phones put the ISO wheel beside the finder, keeping every control on the body. */
+@media(max-width:599px) and (max-height:700px) {
+  .mobile-camera .instant-camera { grid-template-columns:minmax(0,1fr) 144px; grid-template-rows:auto 1fr auto auto auto auto; gap:8px; }
+  .mobile-camera .camera-nameplate { grid-column:1 / -1; }
+  .mobile-camera .viewfinder-bezel { grid-column:1; grid-row:2; width:100%; min-width:0; padding:8px; }
+  .mobile-camera .camera-settings { display:contents; }
+  .mobile-camera .iso-control { grid-column:2; grid-row:2; align-self:center; }
+  .mobile-camera .iso-dial { width:144px; height:144px; --iso-radius:50px; }
+  .mobile-camera .film-presets { grid-column:1 / -1; grid-row:3; }
+  .mobile-camera .timer-control { grid-column:1; grid-row:4; }
+  .mobile-camera .flash-control { grid-column:2; grid-row:4; align-self:center; }
+  .mobile-camera .camera-hardware { grid-column:1 / -1; grid-row:5; }
+  .mobile-camera .ejection-slot { grid-column:1 / -1; grid-row:6; }
+  .mobile-camera.has-print .instant-camera { grid-template-columns:1fr; grid-template-rows:auto auto auto; }
+  .mobile-camera.has-print .camera-hardware { grid-row:2; }
+  .mobile-camera.has-print .ejection-slot { grid-row:3; }
+}
+@media(orientation:landscape) and (max-height:600px) {
+  .mobile-camera .instant-camera { grid-template-columns:minmax(0,1fr) 96px 152px 48px; grid-template-rows:auto 1fr auto auto; gap:8px 12px; }
+  .mobile-camera .viewfinder-bezel { grid-column:1; grid-row:2; width:min(100%,calc(100dvh - 190px)); }
+  .mobile-camera .camera-settings { display:contents; }
+  .mobile-camera .film-presets { grid-column:1; grid-row:3; }
+  .mobile-camera .timer-control { grid-column:2; grid-row:2; align-self:center; }
+  .mobile-camera .iso-control { grid-column:3; grid-row:2; align-self:center; }
+  .mobile-camera .flash-control { grid-column:4; grid-row:2; align-self:center; }
+  .mobile-camera .camera-hardware { grid-column:2 / -1; grid-row:3; }
+  .mobile-camera .camera-nameplate,.mobile-camera .ejection-slot { grid-column:1 / -1; }
+  .mobile-camera .ejection-slot { grid-row:4; }
+  .mobile-camera.has-print .instant-camera { grid-template-columns:1fr; grid-template-rows:auto auto auto; }
+  .mobile-camera.has-print .camera-hardware { grid-column:1; grid-row:2; }
+}
+.mobile-camera .viewfinder-readout { background:#142012e6; }
+.mobile-camera-recovery { padding:12px 16px; background:#141713; color:#f5f1e5; text-align:center; }
+.mobile-camera-recovery p { max-width:48ch; margin:0 auto 8px; font-size:14px; line-height:1.5; }
+.mobile-camera-recovery p:last-child { margin-bottom:0; }
+@media(orientation:landscape) and (max-height:600px) {
+  .mobile-camera.has-print .camera-assembly { --mobile-print-width:120px; }
+  .mobile-camera.has-print .instant-camera { grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-rows:auto auto; padding-block:8px; }
+  .mobile-camera.has-print .camera-nameplate { grid-column:1; grid-row:1; }
+  .mobile-camera.has-print .camera-hardware { grid-column:2; grid-row:1; }
+  .mobile-camera.has-print .ejection-slot { grid-column:1 / -1; grid-row:2; }
+  .mobile-camera.has-print .film-roll,.mobile-camera.has-print .shutter { width:52px; height:52px; min-height:52px; }
+  .mobile-camera.has-print .instant-caption { font-size:14px; padding:2px 0; }
+}
+
+@media(orientation:landscape) and (max-height:350px) {
+  .mobile-camera .instant-camera { padding-block:8px; gap:4px 12px; }
+  .mobile-camera .iso-dial { width:144px; height:144px; --iso-radius:50px; }
+  .mobile-camera .camera-settings legend { margin-bottom:6px; }
+  .mobile-camera .viewfinder-bezel { width:min(100%,calc(100dvh - 166px)); }
+  .mobile-camera.has-print .camera-nameplate > span:first-child { font-size:18px; padding-inline:6px; }
+  .mobile-camera.has-print .instant-print { width:90px; }
+  .mobile-camera.has-print .camera-assembly { --mobile-print-width:90px; }
+  .mobile-camera.has-print .instant-caption { font-size:11px; }
+  .mobile-camera.has-print .print-action-row > button { min-height:44px; padding-block:8px; }
+  .mobile-camera.has-print .capture-decisions button { min-height:44px; }
+}
+.mobile-camera-recovery p { color:inherit; }
+@media(orientation:landscape) and (max-height:350px) {
+  .mobile-camera .film-presets legend { margin-bottom:0; }
+  .mobile-camera .film-presets button { min-height:44px; padding-block:2px; }
+  .mobile-camera .film-cartridge { height:20px; }
+  .mobile-camera .film-roll { width:52px; height:52px; min-height:52px; }
+}

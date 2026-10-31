@@ -144,11 +144,29 @@ function fixture(name: string): Asset {
   };
 }
 
+it("opens mobile home directly into the camera and preserves the stream on resize",async()=>{
+  const stop=vi.fn(),getUserMedia=vi.fn().mockResolvedValue({getTracks:()=>[{stop}]});
+  Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia}});
+  vi.stubGlobal("matchMedia",()=>({matches:true,addEventListener(){},removeEventListener(){}}));
+  await act(async()=>root.render(<App key="mobile"/>));await flush();
+  expect(window.location.pathname).toBe("/camera");
+  expect(host.querySelector("main.mobile-camera")).not.toBeNull();
+  expect(host.querySelector(".site-header, .project-about")).toBeNull();
+  expect(getUserMedia).toHaveBeenCalledOnce();
+  const video=host.querySelector("video");
+  await act(async()=>window.dispatchEvent(new Event("resize")));
+  expect(host.querySelector("video")).toBe(video);
+  expect(getUserMedia).toHaveBeenCalledOnce();
+  await click('a[href="/scrapbook"]');
+  expect(stop).toHaveBeenCalled();
+  expect(window.location.pathname).toBe("/scrapbook");
+});
+
 beforeEach(async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 
-  vi.stubGlobal("matchMedia", () => ({
-    matches: true,
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(prefers-reduced-motion: reduce)",
 
     addListener: () => {},
 

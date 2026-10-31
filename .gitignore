@@ -5,6 +5,7 @@ dist/
 
 # Test output and local Kane recordings
 test-results/
+camera-browser-results/
 playwright-report/
 .testmuai/
 *.evidence
@@ -27,3 +28,8 @@ coverage/
 # Local documentation and editor AI rules
 /.github/instructions/codacy.instructions.md
 /docs/
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini

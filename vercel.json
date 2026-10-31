@@ -5,6 +5,7 @@
   "buildCommand": "pnpm build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/camera", "destination": "/index.html" },
     { "source": "/edit", "destination": "/index.html" },
     { "source": "/finish", "destination": "/index.html" },
     { "source": "/scrapbook", "destination": "/index.html" }

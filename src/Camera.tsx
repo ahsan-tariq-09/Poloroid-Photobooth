@@ -1,19 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { X, RefreshCw, Upload, ArrowRight, Check } from "lucide-react";
 import { motion, useIsPresent } from "motion/react";
 import InstantCamera from "./studio/InstantCamera";
 import InstantPrint from "./studio/InstantPrint";
 import CameraSettings, { CameraReadout, type CameraISO, type TimerSeconds, type FilmPreset, type CameraPreferences } from "./studio/CameraSettings";
 import CameraPreview from "./studio/CameraPreview";
+import MobileCameraScreen from "./studio/MobileCameraScreen";
 import { applyCameraFilm } from "./studio/cameraFilm";
 import { captureDate } from "./studio/captureDate";
 import { playSound, unlockSound, stopSounds, FILM_LOAD_MS } from "./sounds";
 
 export type CaptureDestination = "edit" | "finish";
-export default function Camera({onClose, onCapture, onUpload, enabled, initialSettings}: {
+export default function Camera({onClose, onCapture, onUpload, enabled, initialSettings, presentation="dialog", navigation, busy=false}: {
   onClose: () => void; onCapture: (files: File[], destination: CaptureDestination) => void;
   onUpload: () => void; enabled: boolean;
   initialSettings?: CameraPreferences;
+  presentation?: "dialog" | "screen";
+  navigation?: ReactNode;
+  busy?: boolean;
 }) {
   const present = useIsPresent(), video=useRef<HTMLVideoElement>(null), stream=useRef<MediaStream|null>(null);
   const container=useRef<HTMLDivElement>(null), alive=useRef(true), timer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -26,7 +30,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
   const motionEnabled=useRef(enabled);motionEnabled.current=enabled;
   const captured=prints.length>0;
   useEffect(()=>{if(!enabled)setFlashFrame(0);},[enabled]);
-  const [filmLoaded,setFilmLoaded]=useState(Boolean(initialSettings)&&initialSettings?.loadStartedAt===undefined);
+  const [filmLoaded,setFilmLoaded]=useState(presentation==="screen" || Boolean(initialSettings)&&initialSettings?.loadStartedAt===undefined);
   const [loadingUntil,setLoadingUntil]=useState(initialSettings?.loadStartedAt===undefined?0:initialSettings.loadStartedAt+FILM_LOAD_MS);
   const loading=loadingUntil>0;
   useEffect(()=>{
@@ -63,6 +67,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
   useEffect(()=>{if(!present){alive.current=false;stop();}},[present]);
   useEffect(()=>{
     const key=(e:KeyboardEvent)=>{
+      if(presentation==="screen")return;
       if(e.key==="Escape"){e.preventDefault();onClose();}
       if(e.key!=="Tab")return;
       const controls=container.current?.querySelectorAll<HTMLElement>('button:not(:disabled),select,[tabindex="0"]');
@@ -73,7 +78,7 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
     const hide=()=>{if(document.hidden&&captureRunning.current){generation.current++;urls.current.forEach(url=>URL.revokeObjectURL(url));urls.current=[];if(timer.current)clearTimeout(timer.current);captureRunning.current=false;setCount(null);setShot(0);setError("Capture paused while this page was hidden. Press the shutter to try again.");}};
     document.addEventListener("keydown",key);document.addEventListener("visibilitychange",hide);
     return ()=>{document.removeEventListener("keydown",key);document.removeEventListener("visibilitychange",hide);};
-  },[onClose]);
+  },[onClose,presentation]);
   const take=()=>{
     if(captureRunning.current||!ready||!filmLoaded)return;
     unlockSound();setError("");captureRunning.current=true;setShot(1);const token=++generation.current;
@@ -110,25 +115,34 @@ export default function Camera({onClose, onCapture, onUpload, enabled, initialSe
       timer.current=setTimeout(()=>countdown(n-1),1000);
     };countdown(seconds);
   };
+  const settings=<CameraSettings seconds={seconds} onSeconds={setSeconds} preset={preset} onPreset={setPreset} flash={flash} onFlash={setFlash} iso={iso} onISO={setISO} disabled={shot>0}/>;
+  const print=captured?<InstantPrint photos={prints.map(p=>({src:p.url,alt:"Your captured photo"}))} caption={captureDate(prints[0].file.lastModified)} enabled={enabled} onReveal={()=>setRevealed(true)} onRetake={roll}/>:undefined;
+  const viewfinder=<>
+    <video ref={video} autoPlay playsInline muted style={{transform:facing==="user"?"scaleX(-1)":undefined}} onLoadedData={markReady} onPlaying={markReady}/>
+    {ready&&!captured&&<CameraPreview video={video} preset={preset} iso={iso} flash={flash} mirrored={facing==="user"}/>}
+    <CameraReadout seconds={seconds} preset={preset} iso={iso}/>
+    {!captured&&presentation!=="screen"&&<span className={!ready||error?"camera-message":"sr-only"} role="status">{error||(!ready?"Waiting for camera permission…":loading?"Loading film…":filmLoaded?"Film loaded. Click the shutter.":"Camera ready. Roll the film, then click the shutter.")}</span>}
+    {count!==null&&<span className="countdown" aria-live="assertive">{count}</span>}
+  </>;
+  const decisions=captured&&revealed&&<div className="capture-decisions"><button className="primary-button" disabled={busy} onClick={()=>onCapture(prints.map(p=>p.file),"edit")}>Develop <ArrowRight size={17}/></button><button className="secondary-button" disabled={busy} onClick={()=>onCapture(prints.map(p=>p.file),"finish")}><Check size={17}/> Done</button></div>;
+  const captureFlash=enabled&&flashFrame>0&&<motion.div key={flashFrame} className="capture-flash" aria-hidden="true" initial={{opacity:.28}} animate={{opacity:0}} transition={{duration:.32}} onAnimationComplete={()=>setFlashFrame(0)}/>;
+  const retry=!captured&&error&&!ready&&<button className="secondary-button" onClick={()=>{if(stream.current&&!stream.current.getTracks().some(track=>track.readyState==="ended"))void playVideo();else setRestart(n=>n+1);}}>Retry camera</button>;
+  if(presentation==="screen")return <MobileCameraScreen containerRef={container} navigation={navigation} viewfinder={viewfinder} settings={settings} print={print} decisions={decisions} flash={captureFlash} retry={retry}
+    captured={captured} disabled={!ready||!filmLoaded||shot>0||captured||busy} taking={shot>0} loading={loading} loaded={filmLoaded} onRoll={roll}
+    notice={!captured ? error || (!ready ? "Waiting for camera permission…" : "") : ""}
+    status={loading?"LOADING FILM":shot?"HOLD STILL":ready?"READY":error?"CAMERA UNAVAILABLE":"CONNECTING"}
+    onShutter={take} onFlip={()=>setFacing(f=>f==="user"?"environment":"user")} onUpload={onUpload}/>;
   return <motion.div className="modal-backdrop camera-backdrop" initial={enabled?{opacity:0}:false} animate={{opacity:1}} exit={enabled?{opacity:0,transition:{duration:.15}}:undefined} transition={{duration:enabled?.25:0,ease:[.22,1,.36,1]}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
     <div ref={container} tabIndex={-1} className={`camera-modal camera-experience ${captured?"has-print":""}`} role="dialog" aria-modal="true" aria-labelledby="camera-title">
       <div className="capture-heading"><div><h2 id="camera-title">{captured?"A moment, on paper.":"Take a photo"}</h2>{!captured&&<p>Roll the film, choose your settings, then click.</p>}</div><button className="icon-button" aria-label="Close camera" onClick={onClose}><X size={20}/></button></div>
-      <InstantCamera printed={captured} print={captured?<InstantPrint photos={prints.map(p=>({src:p.url,alt:"Your captured photo"}))} caption={captureDate(prints[0].file.lastModified)} enabled={enabled} onReveal={()=>setRevealed(true)} onRetake={roll}/>:undefined}
-        settings={<CameraSettings seconds={seconds} onSeconds={setSeconds} preset={preset} onPreset={setPreset} flash={flash} onFlash={setFlash} iso={iso} onISO={setISO} disabled={shot>0}/>}
+      <InstantCamera printed={captured} print={print}
+        settings={settings}
         onRoll={roll} rollDisabled={loading||shot>0||(!ready&&!captured)} loading={loading} loaded={filmLoaded} onShutter={take} disabled={!ready||!filmLoaded||shot>0||captured} label="Capture" status={loading?"LOADING FILM":captured?"PRINT READY":shot?"TAKING PHOTO":ready?(filmLoaded?"READY":"ROLL TO LOAD FILM"):error?"CAMERA UNAVAILABLE":"CONNECTING CAMERA"} controls={!captured?<button className="camera-flip" aria-label="Flip camera" disabled={shot>0} onClick={()=>setFacing(f=>f==="user"?"environment":"user")}><RefreshCw size={18}/></button>:undefined}>
-        <video ref={video} autoPlay playsInline muted style={{transform:facing==="user"?"scaleX(-1)":undefined}} onLoadedData={markReady} onPlaying={markReady}/>
-        {ready&&!captured&&<CameraPreview video={video} preset={preset} iso={iso} flash={flash} mirrored={facing==="user"}/>}
-        <CameraReadout seconds={seconds} preset={preset} iso={iso}/>
-        {!captured&&<span className={!ready||error?"camera-message":"sr-only"} role="status">{error||(!ready?"Waiting for your camera…":loading?"Loading film…":filmLoaded?"Film loaded. Click the shutter.":"Camera ready. Roll the film, then click the shutter.")}</span>}
-        {count!==null&&<span className="countdown" aria-live="assertive">{count}</span>}
+        {viewfinder}
       </InstantCamera>
-      {captured&&<>
-        {revealed&&<>
-        <div className="capture-decisions"><button className="primary-button" onClick={()=>onCapture(prints.map(p=>p.file),"edit")}>Develop <ArrowRight size={17}/></button><button className="secondary-button" onClick={()=>onCapture(prints.map(p=>p.file),"finish")}><Check size={17}/> Done</button></div>
-        </>}
-      </>}
-      {enabled&&flashFrame>0&&<motion.div key={flashFrame} className="capture-flash" aria-hidden="true" initial={{opacity:.28}} animate={{opacity:0}} transition={{duration:.32}} onAnimationComplete={()=>setFlashFrame(0)}/>}
-      {!captured&&error&&!ready&&<button className="secondary-button" onClick={()=>{if(stream.current&&!stream.current.getTracks().some(track=>track.readyState==="ended"))void playVideo();else setRestart(n=>n+1);}}>Retry camera</button>}
+      {decisions}
+      {captureFlash}
+      {retry}
       {!captured&&<button className="text-button camera-upload" onClick={onUpload}><Upload size={15}/> Upload a photo instead</button>}
     </div>
   </motion.div>;

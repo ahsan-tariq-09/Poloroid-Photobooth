@@ -4,6 +4,7 @@ import App from "./App";
 import "./styles.css";
 import "./studio/nostalgia.css";
 import "./studio/camera.css";
+import "./studio/mobile-camera.css";
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {

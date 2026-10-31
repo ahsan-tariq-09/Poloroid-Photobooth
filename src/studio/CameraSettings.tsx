@@ -45,7 +45,7 @@ export default function CameraSettings({seconds,onSeconds,preset,onPreset,flash,
       <div className="iso-dial" style={{"--dial-duration":`${isoRotation.duration}ms`} as CSSProperties}><i className="timer-pointer" aria-hidden="true"/>
         <div className="iso-wheel"><div className="iso-markings" style={{transform:`rotate(${isoRotation.angle}deg)`}}>{isoStops.map((value,index)=>{
           const angle=index*Math.PI/3;
-          return <button key={value} type="button" className="iso-stop" aria-label={`ISO ${value}`} aria-pressed={value===iso} onClick={()=>onISO(value)} style={{transform:`translate(${Math.sin(angle)*43}px,${-Math.cos(angle)*43}px)`}}><span style={{transform:`rotate(${-isoRotation.angle}deg)`}}>{value}</span></button>;
+          return <button key={value} type="button" className="iso-stop" aria-label={`ISO ${value}`} aria-pressed={value===iso} onClick={()=>onISO(value)} style={{transform:`translate(calc(${Math.sin(angle)} * var(--iso-radius, 43px)),calc(${-Math.cos(angle)} * var(--iso-radius, 43px)))`}}><span style={{transform:`rotate(${-isoRotation.angle}deg)`}}>{value}</span></button>;
         })}</div></div>
         <button type="button" className="iso-knob" role="slider" aria-label="ISO effect" aria-valuemin={100} aria-valuemax={3200} aria-valuenow={iso} aria-valuetext={`ISO ${iso}`} title="Tap to turn ISO; use arrow keys to adjust" onClick={()=>onISO(isoStops[(isoIndex+1)%isoStops.length])} onKeyDown={event=>{
           const step=event.key==='ArrowUp'||event.key==='ArrowRight'?1:event.key==='ArrowDown'||event.key==='ArrowLeft'?-1:0;

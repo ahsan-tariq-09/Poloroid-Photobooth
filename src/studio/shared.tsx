@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { motion } from "motion/react";
 import { X } from "lucide-react";
 import { useStudioMotion } from "../useStudioMotion";
@@ -64,15 +64,17 @@ export function Dialog({
   title,
   children,
   onClose,
+  returnFocus,
 }: {
   title: string;
   children: React.ReactNode;
   onClose: () => void;
+  returnFocus?: RefObject<HTMLElement | null>;
 }) {
   const ref = useRef<HTMLDivElement>(null),
     enabled = useStudioMotion();
   useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
+    const previous = returnFocus?.current ?? document.activeElement as HTMLElement | null;
     ref.current?.focus();
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -100,7 +102,7 @@ export function Dialog({
       document.removeEventListener("keydown", key);
       previous?.focus();
     };
-  }, [onClose]);
+  }, [onClose, returnFocus]);
   return (
     <motion.div
       className="modal-backdrop"

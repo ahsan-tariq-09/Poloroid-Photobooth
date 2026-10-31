@@ -14,7 +14,7 @@ import {
   useNavigate,
 } from "react-router";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import { X, Volume2, VolumeX, BookOpen } from "lucide-react";
+import { X, Volume2, VolumeX, BookOpen, ArrowRight } from "lucide-react";
 import { ACCEPT } from "./imports";
 import Camera from "./Camera";
 import type { CameraPreferences } from "./studio/CameraSettings";
@@ -56,6 +56,7 @@ function StudioApp() {
   const s = useStudioSession();
   const book = useScrapbook();
   const [sound, setSound] = useState(soundEnabled);
+  const [mobileCamera] = useState(() => window.matchMedia("(max-width: 700px), (max-height: 500px) and (pointer: coarse)").matches);
   const cameraForBook = useRef(false);
   const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
   const enabled = useStudioMotion();
@@ -67,6 +68,7 @@ function StudioApp() {
     [dragging, setDragging] = useState(false);
   const [replacement, setReplacement] = useState<null | (() => void)>(null);
   const path = location.pathname;
+  const cameraPage = path === "/camera";
   useEffect(s.clearMessage, [path, s.clearMessage]);
   const navigationKey = useRef(location.key);
   navigationKey.current = location.key;
@@ -130,7 +132,7 @@ function StudioApp() {
   return (
     <MotionConfig reducedMotion={enabled ? "never" : "always"}>
       <div
-        className="app-shell"
+        className={`app-shell${cameraPage ? " camera-page" : ""}`}
         data-motion={enabled ? "active" : "paused"}
         onDragOver={(e) => {
           if (Array.from(e.dataTransfer.types).includes("Files")) {
@@ -166,7 +168,7 @@ function StudioApp() {
             importFiles(files, intent.current);
           }}
         />
-        <header className="site-header">
+        {!cameraPage && <header className="site-header">
           <Link className="wordmark" to="/" onClick={s.leaveEditor}>
             roid <span className="brand-beta">beta</span>
           </Link>
@@ -191,7 +193,8 @@ function StudioApp() {
           </nav>
           <Link className="scrapbook-nav" to="/scrapbook" aria-label="Scrapbook" aria-current={path === "/scrapbook" ? "page" : undefined}><BookOpen size={17}/><span>Scrapbook</span></Link>
           <button className="sound-toggle" aria-label={sound ? "Mute sound effects" : "Enable sound effects"} aria-pressed={sound} onClick={()=>{setSound(!sound);setSoundEnabled(!sound);}}>{sound?<Volume2 size={18}/>:<VolumeX size={18}/>}</button></div>
-        </header>
+        </header>}
+        {cameraPage && location.state?.notice && <p className="notice camera-notice" role="status">{location.state.notice}</p>}
         {s.error && (
           <div className="error-banner" role="alert">
             <span>{s.error}</span>
@@ -204,7 +207,7 @@ function StudioApp() {
           <Route
             path="/"
             element={
-              <StartScreen
+              mobileCamera ? <Navigate to="/camera" replace state={location.state}/> : <StartScreen
                 busy={s.busy}
                 hasSession={s.hasSession}
                 onUpload={() => openUpload("replace")}
@@ -217,6 +220,19 @@ function StudioApp() {
               />
             }
           />
+          <Route path="/camera" element={<Camera
+            presentation="screen"
+            enabled={enabled}
+            busy={s.busy}
+            onClose={()=>navigate("/scrapbook")}
+            onUpload={()=>openUpload("replace")}
+            onCapture={(files,destination)=>importFiles(files,"replace",destination === "finish" ? "/finish" : "/edit",true)}
+            navigation={<>
+              {s.hasSession && <Link to="/edit" aria-label="Continue your Polaroid"><ArrowRight size={21}/></Link>}
+              <Link to="/scrapbook" aria-label="Scrapbook"><BookOpen size={21}/></Link>
+              <button aria-label={sound ? "Mute sound effects" : "Enable sound effects"} aria-pressed={sound} onClick={()=>{setSound(!sound);setSoundEnabled(!sound);}}>{sound?<Volume2 size={20}/>:<VolumeX size={20}/>}</button>
+            </>}
+          />}/>
           <Route
             path="/edit"
             element={
@@ -237,10 +253,10 @@ function StudioApp() {
               </SessionGuard>
             }
           />
-          <Route path="/scrapbook" element={<ScrapbookScreen studio={book} onCamera={()=>{intent.current="replace";cameraForBook.current=true;setCamera(true);}} onEditPhoto={editSavedPhoto}/>}/>
+          <Route path="/scrapbook" element={<ScrapbookScreen studio={book} onCamera={()=>{intent.current="replace";cameraForBook.current=true;if(mobileCamera)navigate("/camera");else setCamera(true);}} onEditPhoto={editSavedPhoto}/>}/>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        <footer className="project-about" aria-labelledby="about-title">
+        {!cameraPage && <footer className="project-about" aria-labelledby="about-title">
           <div>
             <h2 id="about-title">About roid</h2>
           </div>
@@ -250,7 +266,7 @@ function StudioApp() {
             <p className="field-hint">Save your scrapbook on this device, or download your Polaroid to keep it. Unsaved edits clear when you close or refresh.</p>
             <InstallApp/>
           </div>
-        </footer>
+        </footer>}
         {dragging && (
           <div className="drop-overlay" aria-hidden="true">
             Drop photos to {path === "/edit" ? "add them" : "start"}

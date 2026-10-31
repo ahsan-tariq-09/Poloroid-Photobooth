@@ -14,6 +14,30 @@ beforeEach(()=>{
   Object.defineProperty(HTMLVideoElement.prototype,"videoHeight",{configurable:true,value:480});
 });
 
+it("opens the camera screen ready to capture and keeps its stream while using visible controls",async()=>{
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+  vi.stubGlobal("matchMedia",()=>({matches:true,addEventListener(){},removeEventListener(){}}));
+  const stop=vi.fn(),getUserMedia=vi.fn().mockResolvedValue({getTracks:()=>[{stop}]});
+  Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:{getUserMedia}});
+  const close=vi.fn(),host=document.createElement("div"),root=createRoot(host);document.body.append(host);
+  try{
+    await act(async()=>root.render(<Camera presentation="screen" enabled={false} onClose={close} onUpload={()=>{}} onCapture={()=>{}}/>));
+    expect(getUserMedia).toHaveBeenCalledOnce();
+    expect(host.querySelector("main.mobile-camera")).not.toBeNull();
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
+    expect(host.querySelector<HTMLButtonElement>('[aria-label="Capture"]')!.disabled).toBe(false);
+    const video=host.querySelector("video");
+    expect(host.querySelector('button[aria-label="Camera settings"]')).toBeNull();
+    await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="ISO 1600"]')!.click());
+    expect(host.querySelector('[role="slider"]')!.getAttribute('aria-valuenow')).toBe('1600');
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
+    expect(close).not.toHaveBeenCalled();
+    expect(host.querySelector("video")).toBe(video);
+    expect(getUserMedia).toHaveBeenCalledOnce();
+    await act(async()=>root.unmount());expect(stop).toHaveBeenCalled();
+  }finally{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();vi.unstubAllGlobals();}
+});
+
 it.each([true,false])("keeps sound through Strict Mode replay and stops it on unmount (camera API available: %s)",async available=>{
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
   Object.defineProperty(navigator,"mediaDevices",{configurable:true,value:available?{getUserMedia:vi.fn(async()=>({getTracks:()=>[{stop:vi.fn()}]}))}:undefined});
