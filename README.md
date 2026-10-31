@@ -33,9 +33,7 @@ pnpm preview
 
 `vercel.json` configures the Vite build, static `dist` output and explicit `/camera`, `/edit`, `/finish` and `/scrapbook` rewrites. Static assets and STL downloads keep their original paths. Use Node 24 and set the build environment variable `ENABLE_EXPERIMENTAL_COREPACK=1` so Vercel uses the pinned pnpm version in `package.json`. No application secrets or backend are required.
 
-The Vercel project is `poloroid-photobooth` in `knightahsan09-7593`. Preview deployments require Vercel authentication. The initial deployment uses the local checkout because the Vercel account does not yet have a GitHub login connection. To enable automatic deployments, connect GitHub in Vercel and link `ahsan-tariq-09/Poloroid-Photobooth` in the project's Git settings.
-
-For a manual preview, link the checkout to that project, verify the project and workspace with `vercel project inspect --non-interactive`, then run `vercel deploy --target preview`. Local `.vercel/` settings and environment files are excluded from Git.
+Import your fork into Vercel and use the included `vercel.json` configuration. Keep deployment credentials, local `.vercel/` settings, and environment files out of Git.
 
 ## Use the studio
 
@@ -68,11 +66,6 @@ Print prepares one Polaroid with an outer frame of **88 × 107 mm**, centered on
 
 ## Interface interactions
 
-Project-local design and animation skills from Transitions.dev, Impeccable,
-GSAP, and Make Interfaces Feel Better are installed for future development.
-See the local skill inventory and usage guide at `docs/DESIGN-SKILLS.md`. These are
-agent tools; installing them does not change the running website.
-
 Motion for React animates tool selection, panel changes, dialogs, camera countdown, print ejection and download confirmation. The Polaroid enters the workspace and reveals its photo; dragged pieces lift and settle, inserted collage elements land on the paper, and cuts briefly show their seam. Shake and sound are optional presentation effects, separate from composition state and undo history. Downloads and printing use the final framed composition. Warm film, Original and Black & white offer distinct photo treatments alongside Copy shop.
 
 Reduced-motion settings are respected, and animations settle when the page is hidden. The stage reuses processed photo textures during animation and layer movement rather than running photo effects each frame. Preset thumbnails now render the current uploaded photo.
@@ -104,27 +97,24 @@ Install roid uses the browser's install prompt when available and otherwise show
 - `src/render.ts`, `effects.ts`, `effects.wgsl`: shared composition geometry, Canvas/SVG exports, GPU/CPU effects.
 - `src/App.tsx`: routing, session guards, upload intent and replacement confirmation.
 - `src/studio/`: shared session hook, Start/Edit/Finish screens, grouped controls, deterministic examples and shared-renderer previews.
-- `src/Stage.tsx`, `Camera.tsx`: pointer editing and camera lifecycle.
+- `src/Stage.tsx`, `src/Camera.tsx`: pointer editing and camera lifecycle.
+- `src/studio/InstantCamera.tsx`, `MobileCameraScreen.tsx`, `mobile-camera.css`: shared camera housing and responsive mobile camera.
 - `src/styles.css`, `src/studio/canvas.css`, `src/studio/nostalgia.css`: responsive layout, canvas interactions, dialogs, physical print styles and the warm paper/camera design.
 - `src/scrapbook.ts`, `src/studio/useScrapbook.ts`, `src/studio/ScrapbookScreen.tsx`: local page storage, editable memories and collage/strip rendering.
 - `src/service-worker.js`, `vite.config.ts`, `public/manifest.webmanifest`: production offline cache generation and installation metadata.
 - `public/frames`: the three unchanged STL files supplied for this project.
-- `docs/inspiration`: local supplied references used for the design, excluded from Git.
-- `.openai/hosting.json`: retained identity for the earlier Sites preview; the public delivery target is Vercel.
 
 ## Validation
 
-The mobile camera route passes 164 automated tests, typecheck and the production build. Chromium via CDP and Windows WebKit checks cover 1280×900, 390×844, 320×568 and 844×390 and 568×320 layouts, visible-control keyboard interaction and bottom-slot alignment, rotation without restarting the stream, capture/reveal/retake, reduced motion, hidden-page settling, Edit/Finish, PNG download, permission pending/denied/retry, upload fallback, session resume and replacement cancellation. Browser camera input uses local sample imagery through a simulated media boundary; physical iOS/Android camera and sensor behavior remains unverified. No deployment was performed.
+Run `pnpm test`, `pnpm typecheck`, and `pnpm build` to check a change. The latest camera update passed all 164 automated tests, typecheck, and the production build.
 
-The final redesign passed 100 automated tests, typecheck and the production build after the service-worker cache fix. Chrome checks covered an offline reload with the server stopped, create/edit/finish, adding to the scrapbook, explicit save and reopen, and an actual 720 × 800 single-shot-strip PNG download. Collage output is 2000 × 1560 pixels. Layouts were inspected at 320px, 390px and 1280px. Physical camera capture and installation on real iOS/Android devices remain untested. This redesign has not been deployed.
+Browser checks used Chromium over CDP and Windows WebKit at 1280×900, 390×844, 320×568, 844×390, and 568×320. Coverage included responsive layout, keyboard controls, bottom-slot print alignment, rotation without restarting the stream, capture/reveal/retake, reduced motion, hidden-page settling, Edit/Finish navigation, PNG downloads, camera permission recovery, upload fallback, and session resume.
 
-Local documentation in `docs/` is excluded from Git and is not required to build or run the app. Audit fixes and font verification (`docs/UI-UX-FIXES.md`), the original audit (`docs/UI-UX-AUDIT.md`), and earlier validation coverage (`docs/VALIDATION.md`) retain historical context; the current workflow and limitations are described above.
+Browser camera tests use sample imagery through a simulated media boundary. Physical iOS/Android camera, motion-sensor, and installation behavior remains unverified.
 
 ## References and credits
 
-The design follows the supplied **Design Document for Photobooth**, by Ahsan Tariq, Nairran Zargar, and Md Toha Tawsif. The interaction is a square Polaroid disrupted through cutting, layering, adhesive and analog distortion.
-
-The local design reference map at `docs/DESIGN.md` records the inspiration images and how they shaped the interface. Original sample imagery and its generation prompt are documented there.
+The bundled demonstration photos are AI-generated. The interface uses original HTML, CSS, SVG, and Canvas work to create its camera and paper treatments.
 
 Supplied models:
 
@@ -132,5 +122,3 @@ Supplied models:
 - [Polaroid frame](https://www.printables.com/model/155872-polaroid-frame/files): `polaroid frame.stl`.
 
 The existing GPL-3.0 repository license is preserved. Supplied third-party references and STL models retain their original rights; consult their source listings. Dependency license notices accompany their packages. See [HEIC encoder sources and notices](ENCODER-NOTICES.md) for encoder attribution.
-
-Current camera refinement: centered leather camera, Roll/Click demo and image provenance are documented locally at `docs/redesign/CAMERA-REFINEMENT.md`.
